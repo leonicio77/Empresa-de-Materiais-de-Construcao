@@ -1,6 +1,9 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
+from decimal import Decimal
+from django.utils import timezone
+
 
 class Cliente(models.Model):
     nome = models.CharField(max_length=100)
@@ -349,7 +352,120 @@ class ItemCompra(models.Model):
         return self.quantidade * self.custo
 
     def __str__(self):
-        return f"{self.quantidade}x {self.produto}"                    
+        return f"{self.quantidade}x {self.produto}"    
+
+
+class Despesa(models.Model):
+    TIPOS = [
+        ("agua", "Água"),
+        ("luz", "Luz"),
+        ("telefone", "Telefone"),
+        ("internet", "Internet"),
+        ("aluguel", "Aluguel"),
+        ("salario", "Salário"),
+        ("comissao", "Comissão"),
+        ("outras", "Outras"),
+    ]
+
+    tipo = models.CharField(max_length=10, choices=TIPOS)
+    descricao = models.CharField("descrição", max_length=255, blank=True)
+    valor = models.DecimalField(max_digits=10, decimal_places=2)
+    vencimento = models.DateField()
+    data_pagamento = models.DateField(
+        "data de pagamento", null=True, blank=True
+    )
+
+    class Meta:
+        verbose_name = "despesa"
+        verbose_name_plural = "despesas"
+        ordering = ["vencimento"]
+
+    @property
+    def status(self):
+        if self.data_pagamento:
+            return "Paga"
+        if self.vencimento < timezone.localdate():
+            return "Atrasada"
+        return "A pagar"
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} - {self.vencimento:%d/%m/%Y}"
+
+
+class Comissao(models.Model):
+    vendedor = models.ForeignKey(
+        Funcionario,
+        on_delete=models.PROTECT,
+        limit_choices_to={"cargo": "vendedor"},
+    )
+    data_inicio = models.DateField("início do período")
+    data_fim = models.DateField("fim do período")
+    valor_vendas = models.DecimalField(
+        "total vendido", max_digits=12, decimal_places=2,
+        default=0, editable=False,
+    )
+    percentual = models.DecimalField(
+        "% aplicado", max_digits=5, decimal_places=2,
+        default=0, editable=False,
+    )
+    valor_comissao = models.DecimalField(
+        "valor da comissão", max_digits=10, decimal_places=2,
+        default=0, editable=False,
+    )
+    despesa = models.OneToOneField(
+        Despesa, on_delete=models.PROTECT,
+        null=True, editable=False,
+    )
+    criada_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "comissão"
+        verbose_name_plural = "comissões"
+        ordering = ["-criada_em"]
+
+    def clean(self):
+        if self.data_inicio and self.data_fim:
+            if self.data_fim < self.data_inicio:
+                raise ValidationError("A data final não pode ser anterior à inicial.")
+            if self.vendedor_id:
+                conflito = Comissao.objects.filter(
+                    vendedor=self.vendedor,
+                    data_inicio__lte=self.data_fim,
+                    data_fim__gte=self.data_inicio,
+                ).exclude(pk=self.pk)
+                if conflito.exists():
+                    raise ValidationError(
+                        "Já existe comissão deste vendedor que cobre parte deste período."
+                    )
+
+    def save(self, *args, **kwargs):
+        if self.pk is None:
+            vendas = Venda.objects.filter(
+                pedido__vendedor=self.vendedor,
+                status="concluida",
+                data__date__gte=self.data_inicio,
+                data__date__lte=self.data_fim,
+            )
+            total = sum((v.valor_total for v in vendas), Decimal("0"))
+            self.valor_vendas = total
+            self.percentual = self.vendedor.percentual_comissao
+            self.valor_comissao = (total * self.percentual / 100).quantize(
+                Decimal("0.01")
+            )
+            with transaction.atomic():
+                self.despesa = Despesa.objects.create(
+                    tipo="comissao",
+                    descricao=f"Comissão de {self.vendedor} "
+                              f"({self.data_inicio:%d/%m/%Y} a {self.data_fim:%d/%m/%Y})",
+                    valor=self.valor_comissao,
+                    vencimento=timezone.localdate(),
+                )
+                super().save(*args, **kwargs)
+        else:
+            super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.vendedor} - {self.data_inicio:%d/%m/%Y} a {self.data_fim:%d/%m/%Y}"                        
 
 
 

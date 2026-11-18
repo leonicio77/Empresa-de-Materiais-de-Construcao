@@ -1,8 +1,9 @@
 from django.contrib import admin
+from django.utils import timezone
 from .models import (
     Cliente, Fornecedor, Funcionario, Categoria, Produto,
     Promocao, MovimentacaoEstoque, Pedido, ItemPedido, Venda, Compra,
-    ItemCompra
+    ItemCompra, Despesa, Comissao,
 )
 
 
@@ -108,4 +109,31 @@ class CompraAdmin(admin.ModelAdmin):
         for compra in queryset.filter(status="pendente"):
             compra.cancelar()
             canceladas += 1
-        self.message_user(request, f"{canceladas} compra(s) cancelada(s).")     
+        self.message_user(request, f"{canceladas} compra(s) cancelada(s).") 
+
+@admin.register(Despesa)
+class DespesaAdmin(admin.ModelAdmin):
+    list_display = ("tipo", "descricao", "valor", "vencimento", "data_pagamento", "status")
+    list_filter = ("tipo",)
+    search_fields = ("descricao",)
+    actions = ["marcar_como_paga"]
+
+    @admin.action(description="Marcar despesas selecionadas como pagas (hoje)")
+    def marcar_como_paga(self, request, queryset):
+        atualizadas = queryset.filter(data_pagamento__isnull=True).update(
+            data_pagamento=timezone.localdate()
+        )
+        self.message_user(request, f"{atualizadas} despesa(s) marcada(s) como paga(s).")
+
+
+@admin.register(Comissao)
+class ComissaoAdmin(admin.ModelAdmin):
+    list_display = ("vendedor", "data_inicio", "data_fim",
+                    "valor_vendas", "percentual", "valor_comissao")
+    list_filter = ("vendedor",)
+
+    def get_readonly_fields(self, request, obj=None):
+        calculados = ("valor_vendas", "percentual", "valor_comissao", "despesa")
+        if obj:
+            return calculados + ("vendedor", "data_inicio", "data_fim")
+        return calculados            

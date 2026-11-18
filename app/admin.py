@@ -1,7 +1,8 @@
 from django.contrib import admin
 from .models import (
     Cliente, Fornecedor, Funcionario, Categoria, Produto,
-    Promocao, MovimentacaoEstoque, Pedido, ItemPedido, Venda,
+    Promocao, MovimentacaoEstoque, Pedido, ItemPedido, Venda, Compra,
+    ItemCompra
 )
 
 
@@ -80,3 +81,31 @@ class VendaAdmin(admin.ModelAdmin):
         if obj:
             return ("pedido", "forma_pagamento")
         return ()
+
+class ItemCompraInline(admin.TabularInline):
+    model = ItemCompra
+    extra = 1
+
+@admin.register(Compra)
+class CompraAdmin(admin.ModelAdmin):
+    list_display = ("id", "fornecedor", "data", "status", "valor_total")
+    list_filter = ("status", "fornecedor")
+    inlines = [ItemCompraInline]
+    readonly_fields = ("status", "valor_total")
+    actions = ["marcar_como_recebida", "cancelar_compra"]
+
+    @admin.action(description="Marcar compras selecionadas como recebidas")
+    def marcar_como_recebida(self, request, queryset):
+        recebidas = 0
+        for compra in queryset.filter(status="pendente"):
+            compra.receber()
+            recebidas += 1
+        self.message_user(request, f"{recebidas} compra(s) recebida(s). Estoque atualizado.")
+
+    @admin.action(description="Cancelar compras selecionadas")
+    def cancelar_compra(self, request, queryset):
+        canceladas = 0
+        for compra in queryset.filter(status="pendente"):
+            compra.cancelar()
+            canceladas += 1
+        self.message_user(request, f"{canceladas} compra(s) cancelada(s).")     

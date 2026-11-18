@@ -280,7 +280,76 @@ class Venda(models.Model):
                 self.pedido.save()
 
     def __str__(self):
-        return f"Venda {self.pk} - {self.pedido.cliente}"              
+        return f"Venda {self.pk} - {self.pedido.cliente}"  
+
+
+class Compra(models.Model):
+    STATUS = [
+        ("pendente", "Pendente"),
+        ("recebida", "Recebida"),
+        ("cancelada", "Cancelada"),
+    ]
+
+    fornecedor = models.ForeignKey(Fornecedor, on_delete=models.PROTECT)
+    data = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=10, choices=STATUS, default="pendente")
+
+    class Meta:
+        verbose_name = "compra"
+        verbose_name_plural = "compras"
+        ordering = ["-data"]
+
+    @property
+    def valor_total(self):
+        if self.pk is None:
+            return 0
+        return sum(item.subtotal for item in self.itens.all())
+
+    def receber(self):
+        if self.status != "pendente":
+            raise ValidationError("Só é possível receber compras pendentes.")
+        with transaction.atomic():
+            for item in self.itens.all():
+                produto = Produto.objects.get(pk=item.produto_id)
+                MovimentacaoEstoque.objects.create(
+                    produto=produto,
+                    tipo="entrada",
+                    quantidade=item.quantidade,
+                    observacao=f"Compra {self.pk}",
+                )
+            self.status = "recebida"
+            self.save()
+
+    def cancelar(self):
+        if self.status != "pendente":
+            raise ValidationError("Só é possível cancelar compras pendentes.")
+        self.status = "cancelada"
+        self.save()
+
+    def __str__(self):
+        return f"Compra {self.pk} - {self.fornecedor}"
+
+
+class ItemCompra(models.Model):
+    compra = models.ForeignKey(
+        Compra, on_delete=models.CASCADE, related_name="itens"
+    )
+    produto = models.ForeignKey(Produto, on_delete=models.PROTECT)
+    quantidade = models.PositiveIntegerField()
+    custo = models.DecimalField("custo unitário", max_digits=10, decimal_places=2)
+
+    class Meta:
+        verbose_name = "item da compra"
+        verbose_name_plural = "itens da compra"
+
+    @property
+    def subtotal(self):
+        if self.quantidade is None or self.custo is None:
+            return 0
+        return self.quantidade * self.custo
+
+    def __str__(self):
+        return f"{self.quantidade}x {self.produto}"                    
 
 
 

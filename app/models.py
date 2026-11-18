@@ -80,8 +80,62 @@ class Produto(models.Model):
         verbose_name = "produto"
         verbose_name_plural = "produtos"
 
-        def __str__(self):
-            return self.nome
+    @property
+    def abaixo_do_minimo(self):
+        return self.qtd_estoque <= self.estoque_minimo
+
+    def __str__(self):
+         return self.nome
+
+class Promocao(models.Model):
+    nome = models.CharField(max_length=100)
+    produtos = models.ManyToManyField(Produto, related_name="promocoes") 
+    desconto = models.DecimalField("Desconto (%)", max_digits=5, decimal_places=2)
+    data_inicio = models.DateField("Data de Inicio")
+    data_fim = models.DateField("Data de Fim")
+
+    class Meta:
+        verbose_name = "Promoção"
+        verbose_name_plural = "Promoções"
+
+    def __str__(self):
+        return self.nome    
+
+class MovimentacaoEstoque(models.Model):
+    TIPOS = [
+        ("entrada", "Entrada"),
+        ("saida", "Saída"),
+        ("ajuste", "Ajuste (perda/avaria/inventário)"),
+    ]
+
+    produto = models.ForeignKey(Produto, on_delete=models.PROTECT)
+    tipo = models.CharField(max_length=10, choices=TIPOS)
+    quantidade = models.PositiveIntegerField()
+    data = models.DateTimeField(auto_now_add=True)
+    observacao = models.CharField("observação", max_length=255, blank=True)
+
+    class Meta:
+        verbose_name = "movimentação de estoque"
+        verbose_name_plural = "movimentações de estoque"
+        ordering = ["-data"]
+
+    def clean(self):
+        if self.pk is None and self.tipo != "entrada":
+            if self.quantidade > self.produto.qtd_estoque:
+                raise ValidationError("Estoque insuficiente para esta movimentação.")
+
+    def save(self, *args, **kwargs):
+        if self.pk is None:
+            if self.tipo == "entrada":
+                self.produto.qtd_estoque += self.quantidade
+            else:
+                self.produto.qtd_estoque -= self.quantidade
+            self.produto.save()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} de {self.quantidade} - {self.produto}"     
+
 
 
 

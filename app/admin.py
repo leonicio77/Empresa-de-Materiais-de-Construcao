@@ -1,15 +1,21 @@
 from django.contrib import admin
-from .models import Cliente, Fornecedor, Funcionario, Categoria, Produto
+from .models import (
+    Cliente, Fornecedor, Funcionario, Categoria, Produto,
+    Promocao, MovimentacaoEstoque,
+)
+
 
 @admin.register(Cliente)
 class ClienteAdmin(admin.ModelAdmin):
-    list_display = ("nome", "cpf_cnpj", "telefone", "email")
-    search_fields = ("nome","cpf_cnpj")
+    list_display = ("nome", "cpf_cnpj", "telefone")
+    search_fields = ("nome", "cpf_cnpj")
+
 
 @admin.register(Fornecedor)
 class FornecedorAdmin(admin.ModelAdmin):
-    list_display = ("nome", "cpf_cnpj", "telefone", "email")
-    search_fields = ("nome", "cpf_cnpj")  
+    list_display = ("nome", "cpf_cnpj", "telefone")
+    search_fields = ("nome", "cpf_cnpj")
+
 
 @admin.register(Funcionario)
 class FuncionarioAdmin(admin.ModelAdmin):
@@ -25,9 +31,24 @@ class CategoriaAdmin(admin.ModelAdmin):
 
 @admin.register(Produto)
 class ProdutoAdmin(admin.ModelAdmin):
-    list_display = ("nome", "categoria", "qtd_estoque", "estoque_minimo", "preco_unidade")
+    list_display = (
+        "nome", "categoria", "qtd_estoque", "estoque_minimo",
+        "preco_unidade", "abaixo_do_minimo",
+    )
     list_filter = ("categoria", "fornecedor")
-    search_fields = ("nome",)     
+    search_fields = ("nome",)
 
 
+@admin.register(Promocao)
+class PromocaoAdmin(admin.ModelAdmin):
+    list_display = ("nome", "desconto", "data_inicio", "data_fim")
+    filter_horizontal = ("produtos",)
 
+
+@admin.register(MovimentacaoEstoque)
+class MovimentacaoEstoqueAdmin(admin.ModelAdmin):
+    list_display = ("produto", "tipo", "quantidade", "data")
+    list_filter = ("tipo",)
+
+    def has_change_permission(self, request, obj=None):
+        return obj is None

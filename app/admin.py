@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     Cliente, Fornecedor, Funcionario, Categoria, Produto,
-    Promocao, MovimentacaoEstoque,
+    Promocao, MovimentacaoEstoque, Pedido, ItemPedido
 )
 
 
@@ -52,3 +52,20 @@ class MovimentacaoEstoqueAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return obj is None
+
+
+class ItemPedidoInline(admin.TabularInline):
+    model = ItemPedido
+    extra = 1
+    readonly_fields = ("subtotal",)
+
+
+@admin.register(Pedido)
+class PedidoAdmin(admin.ModelAdmin):
+    list_display = ("id", "cliente", "vendedor", 
+    "data", "status", "valor_total"
+    )  
+    list_filter = ("status",)   
+    search_fields  = ("cliente__nome",)
+    inlines = [ItemPedidoInline]
+    readonly_fields = ("subtotal", "valor_total")

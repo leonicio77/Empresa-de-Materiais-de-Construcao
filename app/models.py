@@ -43,7 +43,7 @@ class Funcionario(models.Model):
     telefone = models.CharField(max_length=20)
     endereco = models.CharField("endereço", max_length=255,)
     email = models.EmailField(blank=True)
-    cargo = models.CharField(max_length=50)
+    cargo = models.CharField(max_length=20, choices=CARGOS)
     salario = models.DecimalField("salário", max_digits=10, decimal_places=2)
     percentual_comissao = models.DecimalField("% de comissao",max_digits=5, decimal_places=2,
     null=True, blank=True)
@@ -134,7 +134,75 @@ class MovimentacaoEstoque(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.get_tipo_display()} de {self.quantidade} - {self.produto}"     
+        return f"{self.get_tipo_display()} de {self.quantidade} - {self.produto}"
+
+class Pedido(models.Model):
+    STATUS = [
+        ("aberto", "Aberto"),
+        ("aprovado", "Aprovado"),
+        ("faturado", "Faturado"),
+        ("cancelado", "Cancelado"),
+    ]
+
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT)
+    vendedor = models.ForeignKey(Funcionario,
+    on_delete=models.PROTECT,
+    limit_choices_to={"cargo": "vendedor"},
+    )
+    data = models.DateTimeField(auto_now_add=True)
+    desconto = models.DecimalField(
+        "desconto (R$)", max_digits=10, decimal_places=2, default=0
+    )
+    status = models.CharField(max_length=10, choices=STATUS, default="aberto")
+
+    class Meta:
+        verbose_name = "pedido"
+        verbose_name_plural = "pedidos"
+        ordering = ["-data"]
+
+    @property
+    def subtotal(self):
+        if self.pk is None:
+            return 0
+        return sum(item.subtotal for item in self.itens.all())
+
+    @property
+    def valor_total(self):
+        return self.subtotal - self.desconto
+
+    def __str__(self):
+        return f"Pedido {self.pk} - {self.cliente}"
+
+
+class ItemPedido(models.Model):
+    pedido = models.ForeignKey(
+        Pedido, on_delete=models.CASCADE, related_name="itens"
+    )
+    produto = models.ForeignKey(Produto, on_delete=models.PROTECT)
+    quantidade = models.PositiveIntegerField()
+    preco_unitario = models.DecimalField(
+        "preço unitário", max_digits=10, decimal_places=2,
+        null=True, blank=True,
+    )
+
+    class Meta:
+        verbose_name = "item do pedido"
+        verbose_name_plural = "itens do pedido"
+
+    @property
+    def subtotal(self):
+        if self.quantidade is None or self.preco_unitario is None:
+            return 0
+        return self.quantidade * self.preco_unitario
+
+    def save(self, *args, **kwargs):
+        if self.preco_unitario is None:
+            self.preco_unitario = self.produto.preco_unidade
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.quantidade}x {self.produto}"        
+
 
 
 

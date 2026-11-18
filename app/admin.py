@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     Cliente, Fornecedor, Funcionario, Categoria, Produto,
-    Promocao, MovimentacaoEstoque, Pedido, ItemPedido
+    Promocao, MovimentacaoEstoque, Pedido, ItemPedido, Venda,
 )
 
 
@@ -69,3 +69,14 @@ class PedidoAdmin(admin.ModelAdmin):
     search_fields  = ("cliente__nome",)
     inlines = [ItemPedidoInline]
     readonly_fields = ("subtotal", "valor_total")
+
+@admin.register(Venda)
+class VendaAdmin(admin.ModelAdmin):
+    list_display = ("id", "pedido", "cliente", "vendedor", "data",
+                    "forma_pagamento", "valor_total", "status")
+    list_filter = ("status", "forma_pagamento")
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return ("pedido", "forma_pagamento")
+        return ()

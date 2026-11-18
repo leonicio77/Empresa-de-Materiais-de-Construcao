@@ -1,4 +1,6 @@
 from django.db import models
+from django.core.exceptions import ValidationError
+from django.db import models, transaction
 
 class Cliente(models.Model):
     nome = models.CharField(max_length=100)
@@ -201,7 +203,84 @@ class ItemPedido(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.quantidade}x {self.produto}"        
+        return f"{self.quantidade}x {self.produto}"  
+
+
+class Venda(models.Model):
+    FORMAS_PAGAMENTO = [
+        ("dinheiro", "Dinheiro"),
+        ("pix", "Pix"),
+        ("debito", "Cartão de débito"),
+        ("credito", "Cartão de crédito"),
+        ("boleto", "Boleto"),
+        
+    ]
+    STATUS = [
+        ("concluida", "Concluída"),
+        ("cancelada", "Cancelada"),
+    ]
+
+    pedido = models.OneToOneField(
+        Pedido,
+        on_delete=models.PROTECT,
+        limit_choices_to={"status": "aprovado"},
+    )
+    data = models.DateTimeField(auto_now_add=True)
+    forma_pagamento = models.CharField(
+        "forma de pagamento", max_length=10, choices=FORMAS_PAGAMENTO
+    )
+    status = models.CharField(max_length=10, choices=STATUS, default="concluida")
+
+    class Meta:
+        verbose_name = "venda"
+        verbose_name_plural = "vendas"
+        ordering = ["-data"]
+
+    @property
+    def cliente(self):
+        return self.pedido.cliente
+
+    @property
+    def vendedor(self):
+        return self.pedido.vendedor
+
+    @property
+    def valor_total(self):
+        return self.pedido.valor_total
+
+    def clean(self):
+        if self.pk is None and self.pedido_id:
+            itens = self.pedido.itens.all()
+            if not itens:
+                raise ValidationError("O pedido não tem itens.")
+            totais = {}
+            for item in itens:
+                totais[item.produto] = totais.get(item.produto, 0) + item.quantidade
+            for produto, qtd in totais.items():
+                if qtd > produto.qtd_estoque:
+                    raise ValidationError(
+                        f"Estoque insuficiente de {produto} "
+                        f"(pedido: {qtd}, disponível: {produto.qtd_estoque})."
+                    )
+
+    def save(self, *args, **kwargs):
+        novo = self.pk is None
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            if novo:
+                for item in self.pedido.itens.all():
+                    produto = Produto.objects.get(pk=item.produto_id)
+                    MovimentacaoEstoque.objects.create(
+                        produto=produto,
+                        tipo="saida",
+                        quantidade=item.quantidade,
+                        observacao=f"Venda {self.pk}",
+                    )
+                self.pedido.status = "faturado"
+                self.pedido.save()
+
+    def __str__(self):
+        return f"Venda {self.pk} - {self.pedido.cliente}"              
 
 
 

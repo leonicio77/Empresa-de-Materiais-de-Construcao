@@ -3,7 +3,7 @@ from django.utils import timezone
 from .models import (
     Cliente, Fornecedor, Funcionario, Categoria, Produto,
     Promocao, MovimentacaoEstoque, Pedido, ItemPedido, Venda, Compra,
-    ItemCompra, Despesa, Comissao,
+    ItemCompra, Despesa, Comissao, Entrega,
 )
 
 
@@ -137,3 +137,16 @@ class ComissaoAdmin(admin.ModelAdmin):
         if obj:
             return calculados + ("vendedor", "data_inicio", "data_fim")
         return calculados            
+
+@admin.register(Entrega)
+class EntregaAdmin(admin.ModelAdmin):
+    list_display = ("venda", "endereco", "data_prevista",
+                    "entregador", "frete", "status")
+    list_filter = ("status", "entregador")
+    list_editable = ("status",)
+    search_fields = ("endereco", "venda__pedido__cliente__nome")
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return ("venda", "data_entrega")
+        return ()        

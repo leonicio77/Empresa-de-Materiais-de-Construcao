@@ -465,7 +465,50 @@ class Comissao(models.Model):
             super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.vendedor} - {self.data_inicio:%d/%m/%Y} a {self.data_fim:%d/%m/%Y}"                        
+        return f"{self.vendedor} - {self.data_inicio:%d/%m/%Y} a {self.data_fim:%d/%m/%Y}"  
+
+class Entrega(models.Model):
+    STATUS = [
+        ("pendente", "Pendente"),
+        ("em_rota", "Em rota"),
+        ("entregue", "Entregue"),
+        ("nao_entregue", "Não entregue"),
+    ]
+
+    venda = models.OneToOneField(
+        Venda,
+        on_delete=models.PROTECT,
+        limit_choices_to={"status": "concluida"},
+    )
+    endereco = models.CharField("endereço de entrega", max_length=255, blank=True)
+    data_prevista = models.DateField("data prevista")
+    data_entrega = models.DateTimeField(
+        "entregue em", null=True, blank=True, editable=False
+    )
+    frete = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    entregador = models.ForeignKey(
+        Funcionario,
+        on_delete=models.PROTECT,
+        limit_choices_to={"cargo": "entregador"},
+        null=True,
+        blank=True,
+    )
+    status = models.CharField(max_length=15, choices=STATUS, default="pendente")
+
+    class Meta:
+        verbose_name = "entrega"
+        verbose_name_plural = "entregas"
+        ordering = ["data_prevista"]
+
+    def save(self, *args, **kwargs):
+        if not self.endereco:
+            self.endereco = self.venda.cliente.endereco
+        if self.status == "entregue" and self.data_entrega is None:
+            self.data_entrega = timezone.now()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Entrega da venda {self.venda_id} - {self.get_status_display()}"                              
 
 
 

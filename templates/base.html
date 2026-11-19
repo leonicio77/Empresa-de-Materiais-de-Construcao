@@ -18,7 +18,9 @@
       <a href="{% url 'funcionario_lista' %}">Funcionários</a>
       <a href="{% url 'categoria_lista' %}">Categorias</a>
       <a href="{% url 'produto_lista' %}">Produtos</a>
+      <a href="{% url 'movimentacao_lista' %}">Estoque</a>
       <a href="{% url 'admin:index' %}">Cadastros</a>
+     
     </nav>
     <form method="post" action="{% url 'logout' %}">
       {% csrf_token %}

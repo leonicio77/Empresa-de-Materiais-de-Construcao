@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block titulo %}Estoque{% endblock %}
+
+{% block conteudo %}
+<div class="barra">
+  <h1>Movimentações de estoque</h1>
+  <a class="botao" href="{% url 'movimentacao_novo' %}">+ Nova movimentação</a>
+</div>
+
+<form method="get" class="busca">
+  <input type="text" name="q" value="{{ busca }}" placeholder="Buscar por produto ou observação">
+  <button type="submit">Buscar</button>
+  {% if busca %}<a href="{% url 'movimentacao_lista' %}">Limpar</a>{% endif %}
+</form>
+
+<div class="cartao">
+  <table>
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Produto</th>
+        <th>Tipo</th>
+        <th>Quantidade</th>
+        <th>Observação</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for mov in movimentacoes %}
+      <tr>
+        <td>{{ mov.data|date:"d/m/Y H:i" }}</td>
+        <td>{{ mov.produto }}</td>
+        <td>
+          <span class="{% if mov.tipo == 'entrada' %}positivo{% else %}negativo{% endif %}">
+            {{ mov.get_tipo_display }}
+          </span>
+        </td>
+        <td>{{ mov.quantidade }}</td>
+        <td>{{ mov.observacao|default:"-" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">Nenhuma movimentação encontrada.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if is_paginated %}
+<div class="paginacao">
+  {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}&q={{ busca|urlencode }}">« Anterior</a>
+  {% endif %}
+  <span>Página {{ page_obj.number }} de {{ paginator.num_pages }}</span>
+  {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}&q={{ busca|urlencode }}">Próxima »</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

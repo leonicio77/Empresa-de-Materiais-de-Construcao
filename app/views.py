@@ -7,7 +7,9 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 
-from .models import Categoria, Cliente, Fornecedor, Funcionario, Produto
+from .models import (
+    Categoria, Cliente, Fornecedor, Funcionario, MovimentacaoEstoque, Produto,
+) 
 
 @login_required
 def home(request):
@@ -239,3 +241,23 @@ class ProdutoDeleteView(BaseDeleteView):
     model = Produto
     prefixo = "produto"
     nome = "produto"    
+
+# ---------- Estoque (movimentações) ----------
+
+class MovimentacaoListView(BaseListView):
+    model = MovimentacaoEstoque
+    template_name = "estoque/lista.html"
+    context_object_name = "movimentacoes"
+    campos_busca = ("produto__nome", "observacao")
+    ordenacao = "-data"
+    paginate_by = 20
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("produto")
+
+
+class MovimentacaoCreateView(BaseCreateView):
+    model = MovimentacaoEstoque
+    fields = ["produto", "tipo", "quantidade", "observacao"]
+    prefixo = "movimentacao"
+    nome = "movimentação de estoque"    

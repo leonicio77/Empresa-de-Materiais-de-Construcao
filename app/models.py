@@ -126,7 +126,12 @@ class MovimentacaoEstoque(models.Model):
         ordering = ["-data"]
 
     def clean(self):
-        if self.pk is None and self.tipo != "entrada":
+        if (
+            self.pk is None
+            and self.produto_id
+            and self.quantidade
+            and self.tipo != "entrada"
+        ):
             if self.quantidade > self.produto.qtd_estoque:
                 raise ValidationError("Estoque insuficiente para esta movimentação.")
 

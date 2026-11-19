@@ -93,3 +93,15 @@ button {
     color: #b00020;
     font-size: 12px;
   }
+
+  .positivo { color: #1b6b35; font-weight: bold; }
+  .negativo { color: #b00020; font-weight: bold; }
+
+  .paginacao {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    margin: 16px 0;
+  }
+  .paginacao a { color: #2f6fdb; text-decoration: none; }  

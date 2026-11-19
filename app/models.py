@@ -229,6 +229,9 @@ class Venda(models.Model):
         on_delete=models.PROTECT,
         limit_choices_to={"status": "aprovado"},
     )
+    motivo_cancelamento = models.CharField(
+        "motivo do cancelamento", max_length=255, blank=True, default=""
+    )
     data = models.DateTimeField(auto_now_add=True)
     forma_pagamento = models.CharField(
         "forma de pagamento", max_length=10, choices=FORMAS_PAGAMENTO
@@ -259,8 +262,14 @@ class Venda(models.Model):
         return self.valor_total - self.total_pago    
 
     @property
+    def total_devolvido(self):
+        if self.pk is None:
+            return Decimal("0")
+        return sum((d.valor for d in self.devolucoes.all()), Decimal("0"))
+
+    @property
     def valor_total(self):
-        return self.pedido.valor_total
+        return self.pedido.valor_total - self.total_devolvido
 
     def clean(self):
         if self.pk is None and self.pedido_id:
@@ -292,6 +301,31 @@ class Venda(models.Model):
                     )
                 self.pedido.status = "faturado"
                 self.pedido.save()
+
+    def cancelar(self):
+        if self.status != "concluida":
+            raise ValidationError("Só vendas concluídas podem ser canceladas.")
+        if not self.motivo_cancelamento.strip():
+            raise ValidationError("Preencha o motivo do cancelamento na venda antes.")
+        if self.pagamentos.exists():
+            raise ValidationError(
+                "A venda tem pagamentos. Estorne (exclua) os pagamentos antes."
+            )
+        if self.devolucoes.exists():
+            raise ValidationError("A venda já tem devoluções e não pode ser cancelada.")
+        with transaction.atomic():
+            for item in self.pedido.itens.all():
+                produto = Produto.objects.get(pk=item.produto_id)
+                MovimentacaoEstoque.objects.create(
+                    produto=produto,
+                    tipo="entrada",
+                    quantidade=item.quantidade,
+                    observacao=f"Cancelamento da venda {self.pk}",
+                )
+            self.pedido.status = "cancelado"
+            self.pedido.save()
+            self.status = "cancelada"
+            self.save()            
 
     def __str__(self):
         return f"Venda {self.pk} - {self.pedido.cliente}"  
@@ -557,7 +591,64 @@ class Pagamento(models.Model):
                 )
 
     def __str__(self):
-        return f"Pagamento de R$ {self.valor} - venda {self.venda_id}"                                    
+        return f"Pagamento de R$ {self.valor} - venda {self.venda_id}"       
+
+class Devolucao(models.Model):
+    venda = models.ForeignKey(
+        Venda,
+        on_delete=models.PROTECT,
+        related_name="devolucoes",
+        limit_choices_to={"status": "concluida"},
+    )
+    produto = models.ForeignKey(Produto, on_delete=models.PROTECT)
+    quantidade = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)]
+    )
+    motivo = models.CharField(max_length=255)
+    data = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "devolução"
+        verbose_name_plural = "devoluções"
+        ordering = ["-data"]
+
+    @property
+    def valor(self):
+        item = self.venda.pedido.itens.filter(produto=self.produto).first()
+        if item is None or item.preco_unitario is None:
+            return Decimal("0")
+        return self.quantidade * item.preco_unitario
+
+    def clean(self):
+        if self.pk is None and self.venda_id and self.produto_id and self.quantidade:
+            itens = self.venda.pedido.itens.filter(produto=self.produto)
+            vendida = sum(i.quantidade for i in itens)
+            if vendida == 0:
+                raise ValidationError("Este produto não faz parte da venda.")
+            ja_devolvida = sum(
+                d.quantidade
+                for d in self.venda.devolucoes.filter(produto=self.produto)
+            )
+            if self.quantidade > vendida - ja_devolvida:
+                raise ValidationError(
+                    f"Quantidade maior que a possível: vendida {vendida}, "
+                    f"já devolvida {ja_devolvida}."
+                )
+
+    def save(self, *args, **kwargs):
+        novo = self.pk is None
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            if novo:
+                MovimentacaoEstoque.objects.create(
+                    produto=Produto.objects.get(pk=self.produto_id),
+                    tipo="entrada",
+                    quantidade=self.quantidade,
+                    observacao=f"Devolução da venda {self.venda_id}",
+                )
+
+    def __str__(self):
+        return f"Devolução de {self.quantidade}x {self.produto} (venda {self.venda_id})"                                     
 
 
 

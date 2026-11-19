@@ -1,9 +1,11 @@
 from django.contrib import admin
 from django.utils import timezone
+from django.contrib import admin, messages
+from django.core.exceptions import ValidationError
 from .models import (
     Cliente, Fornecedor, Funcionario, Categoria, Produto,
     Promocao, MovimentacaoEstoque, Pedido, ItemPedido, Venda, Compra,
-    ItemCompra, Despesa, Comissao, Entrega, Pagamento,
+    ItemCompra, Despesa, Comissao, Entrega, Pagamento, Devolucao,
 )
 
 
@@ -74,15 +76,32 @@ class PedidoAdmin(admin.ModelAdmin):
 
 @admin.register(Venda)
 class VendaAdmin(admin.ModelAdmin):
-    list_display =("id", "pedido", "cliente", "vendedor", "data",
-                   "forma_pagamento", "valor_total", "total_pago",
-                   "saldo_devedor", "status")
+    list_display = ("id", "pedido", "cliente", "vendedor", "data",
+                    "forma_pagamento", "valor_total", "total_pago",
+                    "saldo_devedor", "status")
     list_filter = ("status", "forma_pagamento")
+    actions = ["cancelar_vendas"]
 
     def get_readonly_fields(self, request, obj=None):
         if obj:
-            return ("pedido", "forma_pagamento")
-        return ()
+            return ("status", "pedido", "forma_pagamento")
+        return ("status",)
+
+    @admin.action(description="Cancelar vendas selecionadas (devolve ao estoque)")
+    def cancelar_vendas(self, request, queryset):
+        canceladas = 0
+        for venda in queryset:
+            try:
+                venda.cancelar()
+                canceladas += 1
+            except ValidationError as erro:
+                self.message_user(
+                    request,
+                    f"Venda {venda.pk}: {erro.messages[0]}",
+                    level=messages.ERROR,
+                )
+        if canceladas:
+            self.message_user(request, f"{canceladas} venda(s) cancelada(s).")
 
 class ItemCompraInline(admin.TabularInline):
     model = ItemCompra
@@ -159,4 +178,12 @@ class PagamentoAdmin(admin.ModelAdmin):
     search_fields = ("venda__pedido__cliente__nome",)
 
     def has_change_permission(self, request, obj=None):
-        return obj is None        
+        return obj is None    
+
+@admin.register(Devolucao)
+class DevolucaoAdmin(admin.ModelAdmin):
+    list_display = ("venda", "produto", "quantidade", "valor", "motivo", "data")
+    search_fields = ("motivo", "venda__pedido__cliente__nome")
+
+    def has_change_permission(self, request, obj=None):
+        return obj is None            

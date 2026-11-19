@@ -42,3 +42,40 @@ button {
 }
 
 .erro { color: #b00020; }
+
+.barra {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .botao, .botao-perigo {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 4px;
+    background: #2f6fdb;
+    color: #fff;
+    text-decoration: none;
+  }
+  
+  .botao-perigo { background: #b00020; border: 0; cursor: pointer; }
+  
+  .busca { display: flex; gap: 8px; align-items: center; margin: 16px 0; }
+  .busca input { flex: 1; padding: 8px; }
+  
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 10px; text-align: left; border-bottom: 1px solid #e3e6ea; }
+  th { background: #f7f8fa; }
+  
+  .acoes { display: flex; gap: 12px; }
+  .acoes a { color: #2f6fdb; text-decoration: none; }
+  .acoes a.perigo { color: #b00020; }
+  
+  .formulario { max-width: 520px; }
+  .formulario input, .formulario select { width: 100%; padding: 8px; }
+  .formulario p { margin: 12px 0; }
+  .formulario a { margin-left: 12px; }
+  
+  .mensagem { padding: 12px 16px; border-radius: 4px; margin-bottom: 16px; }
+  .mensagem.success { background: #e3f5e8; color: #1b6b35; }
+  .mensagem.error { background: #fde8ea; color: #b00020; }

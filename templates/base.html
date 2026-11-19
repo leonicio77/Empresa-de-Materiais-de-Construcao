@@ -12,8 +12,9 @@
   <header class="topo">
     <strong>Materiais de Construção</strong>
     <nav>
-      <a href="{% url 'home' %}">Início</a>
-      <a href="{% url 'admin:index' %}">Cadastros</a>
+        <a href="{% url 'home' %}">Início</a>
+        <a href="{% url 'cliente_lista' %}">Clientes</a>
+        <a href="{% url 'admin:index' %}">Cadastros</a>
     </nav>
     <form method="post" action="{% url 'logout' %}">
       {% csrf_token %}
@@ -24,6 +25,11 @@
   {% endif %}
 
   <main class="conteudo">
+    {% if messages %}
+    {% for mensagem in messages %}
+      <div class="mensagem {{ mensagem.tags }}">{{ mensagem }}</div>
+    {% endfor %}
+  {% endif %}
     {% block conteudo %}{% endblock %}
   </main>
 </body>

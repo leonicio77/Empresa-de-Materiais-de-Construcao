@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block titulo %}Produtos{% endblock %}
+
+{% block conteudo %}
+<div class="barra">
+  <h1>Produtos</h1>
+  <a class="botao" href="{% url 'produto_novo' %}">+ Novo produto</a>
+</div>
+
+<form method="get" class="busca">
+  <input type="text" name="q" value="{{ busca }}" placeholder="Buscar por produto, categoria ou fornecedor">
+  <button type="submit">Buscar</button>
+  {% if busca %}<a href="{% url 'produto_lista' %}">Limpar</a>{% endif %}
+</form>
+
+<div class="cartao">
+  <table>
+    <thead>
+      <tr>
+        <th>Nome</th>
+        <th>Categoria</th>
+        <th>Fornecedor</th>
+        <th>Estoque</th>
+        <th>Mínimo</th>
+        <th>Preço</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for produto in produtos %}
+      <tr>
+        <td>{{ produto.nome }}</td>
+        <td>{{ produto.categoria }}</td>
+        <td>{{ produto.fornecedor }}</td>
+        <td>
+          {{ produto.qtd_estoque }}
+          {% if produto.abaixo_do_minimo %}<span class="alerta">Baixo</span>{% endif %}
+        </td>
+        <td>{{ produto.estoque_minimo }}</td>
+        <td>R$ {{ produto.preco_unidade }}</td>
+        <td class="acoes">
+          <a href="{% url 'produto_editar' produto.pk %}">Editar</a>
+          <a href="{% url 'produto_excluir' produto.pk %}" class="perigo">Excluir</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7">Nenhum produto encontrado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

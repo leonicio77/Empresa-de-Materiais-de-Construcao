@@ -12,10 +12,13 @@
   <header class="topo">
     <strong>Materiais de Construção</strong>
     <nav>
-        <a href="{% url 'home' %}">Início</a>
-        <a href="{% url 'cliente_lista' %}">Clientes</a>
-        <a href="{% url 'fornecedor_lista' %}">Fornecedores</a>
-        <a href="{% url 'admin:index' %}">Cadastros</a>
+      <a href="{% url 'home' %}">Início</a>
+      <a href="{% url 'cliente_lista' %}">Clientes</a>
+      <a href="{% url 'fornecedor_lista' %}">Fornecedores</a>
+      <a href="{% url 'funcionario_lista' %}">Funcionários</a>
+      <a href="{% url 'categoria_lista' %}">Categorias</a>
+      <a href="{% url 'produto_lista' %}">Produtos</a>
+      <a href="{% url 'admin:index' %}">Cadastros</a>
     </nav>
     <form method="post" action="{% url 'logout' %}">
       {% csrf_token %}

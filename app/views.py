@@ -7,8 +7,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 
-from .models import Cliente, Fornecedor
-
+from .models import Categoria, Cliente, Fornecedor, Funcionario, Produto
 
 @login_required
 def home(request):
@@ -147,3 +146,96 @@ class FornecedorDeleteView(BaseDeleteView):
     model = Fornecedor
     prefixo = "fornecedor"
     nome = "fornecedor"
+
+# ---------- Funcionários ----------
+
+class FuncionarioListView(BaseListView):
+    model = Funcionario
+    template_name = "funcionarios/lista.html"
+    context_object_name = "funcionarios"
+    campos_busca = ("nome", "cpf", "cargo")
+
+
+class FuncionarioCreateView(BaseCreateView):
+    model = Funcionario
+    fields = ["nome", "cpf", "telefone", "endereco", "cargo",
+              "salario", "percentual_comissao"]
+    prefixo = "funcionario"
+    nome = "funcionário"
+
+
+class FuncionarioUpdateView(BaseUpdateView):
+    model = Funcionario
+    fields = ["nome", "cpf", "telefone", "endereco", "cargo",
+              "salario", "percentual_comissao"]
+    prefixo = "funcionario"
+    nome = "funcionário"
+
+
+class FuncionarioDeleteView(BaseDeleteView):
+    model = Funcionario
+    prefixo = "funcionario"
+    nome = "funcionário"
+
+
+# ---------- Categorias ----------
+
+class CategoriaListView(BaseListView):
+    model = Categoria
+    template_name = "categorias/lista.html"
+    context_object_name = "categorias"
+    campos_busca = ("nome",)
+
+
+class CategoriaCreateView(BaseCreateView):
+    model = Categoria
+    fields = ["nome"]
+    prefixo = "categoria"
+    nome = "categoria"
+
+
+class CategoriaUpdateView(BaseUpdateView):
+    model = Categoria
+    fields = ["nome"]
+    prefixo = "categoria"
+    nome = "categoria"
+
+
+class CategoriaDeleteView(BaseDeleteView):
+    model = Categoria
+    prefixo = "categoria"
+    nome = "categoria"
+
+
+# ---------- Produtos ----------
+
+class ProdutoListView(BaseListView):
+    model = Produto
+    template_name = "produtos/lista.html"
+    context_object_name = "produtos"
+    campos_busca = ("nome", "categoria__nome", "fornecedor__nome")
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("categoria", "fornecedor")
+
+
+class ProdutoCreateView(BaseCreateView):
+    model = Produto
+    fields = ["nome", "descricao", "categoria", "fornecedor",
+              "estoque_minimo", "m2", "preco_unidade"]
+    prefixo = "produto"
+    nome = "produto"
+
+
+class ProdutoUpdateView(BaseUpdateView):
+    model = Produto
+    fields = ["nome", "descricao", "categoria", "fornecedor",
+              "estoque_minimo", "m2", "preco_unidade"]
+    prefixo = "produto"
+    nome = "produto"
+
+
+class ProdutoDeleteView(BaseDeleteView):
+    model = Produto
+    prefixo = "produto"
+    nome = "produto"    

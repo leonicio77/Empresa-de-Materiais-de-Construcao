@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 
-{% block titulo %}Excluir cliente{% endblock %}
+{% block titulo %}Excluir {{ nome }}{% endblock %}
 
 {% block conteudo %}
 <div class="cartao formulario">
-  <h1>Excluir cliente</h1>
-  <p>Tem certeza que deseja excluir <strong>{{ object.nome }}</strong>?</p>
+  <h1>Excluir {{ nome }}</h1>
+  <p>Tem certeza que deseja excluir <strong>{{ object }}</strong>?</p>
   <form method="post">
     {% csrf_token %}
     <button type="submit" class="botao-perigo">Sim, excluir</button>
-    <a href="{% url 'cliente_lista' %}">Cancelar</a>
+    <a href="{% url url_lista %}">Cancelar</a>
   </form>
 </div>
 {% endblock %}

@@ -3,6 +3,7 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from decimal import Decimal
 from django.utils import timezone
+from django.core.validators import MinValueValidator
 
 
 class Cliente(models.Model):
@@ -246,6 +247,16 @@ class Venda(models.Model):
     @property
     def vendedor(self):
         return self.pedido.vendedor
+
+    @property
+    def total_pago(self):
+        if self.pk is None:
+            return Decimal("0")
+        return sum((p.valor for p in self.pagamentos.all()), Decimal("0"))
+
+    @property
+    def saldo_devedor(self):
+        return self.valor_total - self.total_pago    
 
     @property
     def valor_total(self):
@@ -508,7 +519,45 @@ class Entrega(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Entrega da venda {self.venda_id} - {self.get_status_display()}"                              
+        return f"Entrega da venda {self.venda_id} - {self.get_status_display()}"  
+
+class Pagamento(models.Model):
+    FORMAS = [
+        ("dinheiro", "Dinheiro"),
+        ("pix", "Pix"),
+        ("debito", "Cartão de débito"),
+        ("credito", "Cartão de crédito"),
+        ("boleto", "Boleto"),
+    ]
+
+    venda = models.ForeignKey(
+        Venda,
+        on_delete=models.PROTECT,
+        related_name="pagamentos",
+        limit_choices_to={"status": "concluida"},
+    )
+    valor = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
+    forma = models.CharField(max_length=10, choices=FORMAS)
+    data = models.DateField(default=timezone.localdate)
+
+    class Meta:
+        verbose_name = "pagamento"
+        verbose_name_plural = "pagamentos"
+        ordering = ["-data"]
+
+    def clean(self):
+        if self.pk is None and self.venda_id and self.valor is not None:
+            if self.valor > self.venda.saldo_devedor:
+                raise ValidationError(
+                    f"O valor é maior que o saldo devedor "
+                    f"(R$ {self.venda.saldo_devedor:.2f})."
+                )
+
+    def __str__(self):
+        return f"Pagamento de R$ {self.valor} - venda {self.venda_id}"                                    
 
 
 

@@ -3,7 +3,7 @@ from django.utils import timezone
 from .models import (
     Cliente, Fornecedor, Funcionario, Categoria, Produto,
     Promocao, MovimentacaoEstoque, Pedido, ItemPedido, Venda, Compra,
-    ItemCompra, Despesa, Comissao, Entrega,
+    ItemCompra, Despesa, Comissao, Entrega, Pagamento,
 )
 
 
@@ -74,8 +74,9 @@ class PedidoAdmin(admin.ModelAdmin):
 
 @admin.register(Venda)
 class VendaAdmin(admin.ModelAdmin):
-    list_display = ("id", "pedido", "cliente", "vendedor", "data",
-                    "forma_pagamento", "valor_total", "status")
+    list_display =("id", "pedido", "cliente", "vendedor", "data",
+                   "forma_pagamento", "valor_total", "total_pago",
+                   "saldo_devedor", "status")
     list_filter = ("status", "forma_pagamento")
 
     def get_readonly_fields(self, request, obj=None):
@@ -150,3 +151,12 @@ class EntregaAdmin(admin.ModelAdmin):
         if obj:
             return ("venda", "data_entrega")
         return ()        
+
+@admin.register(Pagamento)
+class PagamentoAdmin(admin.ModelAdmin):
+    list_display = ("venda", "valor", "forma", "data")
+    list_filter = ("forma",)
+    search_fields = ("venda__pedido__cliente__nome",)
+
+    def has_change_permission(self, request, obj=None):
+        return obj is None        

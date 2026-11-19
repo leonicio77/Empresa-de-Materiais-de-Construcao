@@ -1,0 +1,30 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Materiais de Construção{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/estilo.css' %}">
+</head>
+<body>
+  {% if user.is_authenticated %}
+  <header class="topo">
+    <strong>Materiais de Construção</strong>
+    <nav>
+      <a href="{% url 'home' %}">Início</a>
+      <a href="{% url 'admin:index' %}">Cadastros</a>
+    </nav>
+    <form method="post" action="{% url 'logout' %}">
+      {% csrf_token %}
+      <span>Olá, {{ user.username }}</span>
+      <button type="submit">Sair</button>
+    </form>
+  </header>
+  {% endif %}
+
+  <main class="conteudo">
+    {% block conteudo %}{% endblock %}
+  </main>
+</body>
+</html>

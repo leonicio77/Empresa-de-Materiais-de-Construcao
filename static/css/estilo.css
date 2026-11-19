@@ -1,0 +1,44 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f2f4f7;
+  color: #222;
+}
+
+.topo {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 24px;
+  background: #1f3a5f;
+  color: #fff;
+}
+
+.topo nav { flex: 1; display: flex; gap: 16px; }
+.topo a { color: #fff; text-decoration: none; }
+.topo a:hover { text-decoration: underline; }
+.topo form { display: flex; align-items: center; gap: 12px; }
+
+.conteudo { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+
+.cartao {
+  background: #fff;
+  padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.login { max-width: 360px; margin: 80px auto; }
+
+button {
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 4px;
+  background: #2f6fdb;
+  color: #fff;
+  cursor: pointer;
+}
+
+.erro { color: #b00020; }

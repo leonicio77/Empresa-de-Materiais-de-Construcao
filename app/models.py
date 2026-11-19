@@ -91,7 +91,7 @@ class Produto(models.Model):
         return self.qtd_estoque <= self.estoque_minimo
 
     def __str__(self):
-         return self.nome
+        return self.nome
 
 class Promocao(models.Model):
     nome = models.CharField(max_length=100)

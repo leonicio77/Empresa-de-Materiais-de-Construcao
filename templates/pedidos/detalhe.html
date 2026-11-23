@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block titulo %}Pedido {{ object.pk }}{% endblock %}
+
+{% block conteudo %}
+<div class="barra">
+  <h1>Pedido {{ object.pk }}
+    <span class="selo {{ object.status }}">{{ object.get_status_display }}</span>
+  </h1>
+  <a href="{% url 'pedido_lista' %}">« Voltar</a>
+</div>
+
+<div class="cartao">
+  <p><strong>Cliente:</strong> {{ object.cliente }}</p>
+  <p><strong>Vendedor:</strong> {{ object.vendedor }}</p>
+  <p><strong>Data:</strong> {{ object.data|date:"d/m/Y H:i" }}</p>
+  {% if object.venda %}
+    <p><strong>Venda:</strong> nº {{ object.venda.pk }}
+      ({{ object.venda.get_forma_pagamento_display }})</p>
+  {% endif %}
+</div>
+
+<div class="cartao espaco">
+  <table>
+    <thead>
+      <tr>
+        <th>Produto</th>
+        <th>Quantidade</th>
+        <th>Preço unitário</th>
+        <th>Subtotal</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in itens %}
+      <tr>
+        <td>{{ item.produto }}</td>
+        <td>{{ item.quantidade }}</td>
+        <td>R$ {{ item.preco_unitario|floatformat:2 }}</td>
+        <td>R$ {{ item.subtotal|floatformat:2 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4">Nenhum item.</td></tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr><td colspan="3" class="direita">Subtotal</td><td>R$ {{ object.subtotal|floatformat:2 }}</td></tr>
+      <tr><td colspan="3" class="direita">Desconto</td><td>- R$ {{ object.desconto|floatformat:2 }}</td></tr>
+      <tr class="total"><td colspan="3" class="direita">Total</td><td>R$ {{ object.valor_total|floatformat:2 }}</td></tr>
+    </tfoot>
+  </table>
+</div>
+
+<div class="acoes-pedido">
+  {% if object.status == "aberto" %}
+    <a class="botao" href="{% url 'pedido_editar' object.pk %}">Editar</a>
+    <form method="post" action="{% url 'pedido_aprovar' object.pk %}">
+      {% csrf_token %}
+      <button type="submit">Aprovar pedido</button>
+    </form>
+  {% endif %}
+
+  {% if object.status == "aprovado" %}
+    <form method="post" action="{% url 'pedido_faturar' object.pk %}" class="linha">
+      {% csrf_token %}
+      <select name="forma_pagamento" required>
+        <option value="">Forma de pagamento...</option>
+        {% for valor, nome in formas_pagamento %}
+          <option value="{{ valor }}">{{ nome }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit">Registrar venda</button>
+    </form>
+  {% endif %}
+
+  {% if object.status == "aberto" or object.status == "aprovado" %}
+    <form method="post" action="{% url 'pedido_cancelar' object.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="botao-perigo">Cancelar pedido</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

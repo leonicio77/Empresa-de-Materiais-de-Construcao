@@ -29,5 +29,13 @@ urlpatterns = [
 
     path("estoque/", views.MovimentacaoListView.as_view(), name="movimentacao_lista"),
     path("estoque/nova/", views.MovimentacaoCreateView.as_view(), name="movimentacao_novo"),
+
+    path("pedidos/", views.PedidoListView.as_view(), name="pedido_lista"),
+    path("pedidos/novo/", views.PedidoCreateView.as_view(), name="pedido_novo"),
+    path("pedidos/<int:pk>/", views.PedidoDetailView.as_view(), name="pedido_detalhe"),
+    path("pedidos/<int:pk>/editar/", views.PedidoUpdateView.as_view(), name="pedido_editar"),
+    path("pedidos/<int:pk>/aprovar/", views.pedido_aprovar, name="pedido_aprovar"),
+    path("pedidos/<int:pk>/cancelar/", views.pedido_cancelar, name="pedido_cancelar"),
+    path("pedidos/<int:pk>/faturar/", views.pedido_faturar, name="pedido_faturar"),
 ]
 

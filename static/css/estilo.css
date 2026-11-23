@@ -104,4 +104,38 @@ button {
     gap: 16px;
     margin: 16px 0;
   }
-  .paginacao a { color: #2f6fdb; text-decoration: none; }  
+  .paginacao a { color: #2f6fdb; text-decoration: none; } 
+  
+  .formulario-largo { max-width: 720px; }
+.formulario select, .itens select, .itens input[type="number"] { padding: 8px; }
+.itens select { width: 100%; }
+.itens input[type="number"] { width: 100px; }
+.itens td { vertical-align: top; }
+
+.secundario {
+  background: #fff;
+  color: #2f6fdb;
+  border: 1px solid #2f6fdb;
+  margin: 8px 0 16px;
+}
+
+.espaco { margin-top: 16px; }
+.direita { text-align: right; }
+tfoot td { border-bottom: 0; }
+tr.total td { font-weight: bold; font-size: 1.1em; }
+
+.acoes-pedido { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+.acoes-pedido form { margin: 0; }
+.linha { display: flex; gap: 8px; }
+
+.selo {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  background: #e3e6ea;
+}
+.selo.aberto { background: #fff3cd; color: #7a5b00; }
+.selo.aprovado { background: #d6e8ff; color: #1b4f9c; }
+.selo.faturado { background: #e3f5e8; color: #1b6b35; }
+.selo.cancelado { background: #fde8ea; color: #b00020; }

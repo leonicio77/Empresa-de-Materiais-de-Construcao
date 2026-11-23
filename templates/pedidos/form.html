@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block titulo %}Pedido{% endblock %}
+
+{% block conteudo %}
+<div class="cartao formulario formulario-largo">
+  <h1>{% if object %}Editar pedido {{ object.pk }}{% else %}Novo pedido{% endif %}</h1>
+
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+
+    <h2>Itens do pedido</h2>
+    {{ formset.management_form }}
+    {% if formset.non_form_errors %}
+      <p class="erro">{{ formset.non_form_errors }}</p>
+    {% endif %}
+
+    <table class="itens">
+      <thead>
+        <tr><th>Produto</th><th>Quantidade</th><th>Remover</th></tr>
+      </thead>
+      <tbody id="itens-corpo">
+        {% for f in formset %}
+        <tr class="item-form">
+          <td>
+            {% for h in f.hidden_fields %}{{ h }}{% endfor %}
+            {{ f.produto.errors }}{{ f.produto }}
+          </td>
+          <td>{{ f.quantidade.errors }}{{ f.quantidade }}</td>
+          <td>{{ f.DELETE }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <button type="button" id="adicionar-item" class="secundario">+ Adicionar produto</button>
+
+    <template id="modelo-linha">
+      <tr class="item-form">
+        <td>
+          {% for h in formset.empty_form.hidden_fields %}{{ h }}{% endfor %}
+          {{ formset.empty_form.produto }}
+        </td>
+        <td>{{ formset.empty_form.quantidade }}</td>
+        <td>{{ formset.empty_form.DELETE }}</td>
+      </tr>
+    </template>
+
+    <p>
+      <button type="submit">Salvar pedido</button>
+      <a href="{% url 'pedido_lista' %}">Cancelar</a>
+    </p>
+  </form>
+</div>
+
+<script>
+  const prefixo = "{{ formset.prefix }}";
+  const total = document.getElementById("id_" + prefixo + "-TOTAL_FORMS");
+  const corpo = document.getElementById("itens-corpo");
+  const modelo = document.getElementById("modelo-linha");
+
+  document.getElementById("adicionar-item").addEventListener("click", function () {
+    const html = modelo.innerHTML.replace(/__prefix__/g, total.value);
+    corpo.insertAdjacentHTML("beforeend", html);
+    total.value = parseInt(total.value) + 1;
+  });
+</script>
+{% endblock %}

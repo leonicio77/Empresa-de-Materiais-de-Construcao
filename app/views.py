@@ -12,11 +12,12 @@ from django.views.generic import (
     CreateView, DeleteView, DetailView, ListView, UpdateView,
 )
 
-from .forms import ItemPedidoFormSet
+from .forms import DevolucaoForm, ItemPedidoFormSet, PagamentoForm
 from .models import (
-    Categoria, Cliente, Fornecedor, Funcionario, MovimentacaoEstoque,
-    Pedido, Produto, Venda,
+    Categoria, Cliente, Devolucao, Fornecedor, Funcionario,
+    MovimentacaoEstoque, Pagamento, Pedido, Produto, Venda,
 )
+
 
 @login_required
 def home(request):
@@ -393,4 +394,107 @@ def pedido_faturar(request, pk):
             messages.error(request, mensagem)
     else:
         messages.success(request, "Venda registrada e estoque atualizado.")
-    return redirect("pedido_detalhe", pk=pk)       
+        return redirect("venda_detalhe", pk=venda.pk)
+    return redirect("pedido_detalhe", pk=pk)
+
+# ---------- Vendas ----------
+
+def _mostrar_erros(request, formulario):
+    for campo, erros in formulario.errors.items():
+        for erro in erros:
+            if campo == "__all__":
+                messages.error(request, erro)
+            else:
+                rotulo = formulario.fields[campo].label or campo
+                messages.error(request, f"{rotulo}: {erro}")
+
+
+class VendaListView(BaseListView):
+    model = Venda
+    template_name = "vendas/lista.html"
+    context_object_name = "vendas"
+    campos_busca = ("pedido__cliente__nome",)
+    ordenacao = "-data"
+    paginate_by = 20
+
+    def get_queryset(self):
+        vendas = (
+            super().get_queryset()
+            .select_related("pedido__cliente", "pedido__vendedor")
+            .prefetch_related("pedido__itens", "pagamentos", "devolucoes")
+        )
+        status = self.request.GET.get("status", "")
+        if status:
+            vendas = vendas.filter(status=status)
+        return vendas
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        contexto["status_atual"] = self.request.GET.get("status", "")
+        contexto["opcoes_status"] = Venda.STATUS
+        return contexto
+
+
+class VendaDetailView(LoginRequiredMixin, DetailView):
+    model = Venda
+    template_name = "vendas/detalhe.html"
+
+    def get_queryset(self):
+        return Venda.objects.select_related("pedido__cliente", "pedido__vendedor")
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        venda = self.object
+        contexto["itens"] = venda.pedido.itens.select_related("produto")
+        contexto["pagamentos"] = venda.pagamentos.all()
+        contexto["devolucoes"] = venda.devolucoes.select_related("produto")
+        contexto["form_pagamento"] = PagamentoForm(instance=Pagamento(venda=venda))
+        contexto["form_devolucao"] = DevolucaoForm(instance=Devolucao(venda=venda))
+        return contexto
+
+
+@login_required
+@require_POST
+def venda_pagamento(request, pk):
+    venda = get_object_or_404(Venda, pk=pk)
+    if venda.status != "concluida":
+        messages.error(request, "Só vendas concluídas recebem pagamentos.")
+        return redirect("venda_detalhe", pk=pk)
+    formulario = PagamentoForm(request.POST, instance=Pagamento(venda=venda))
+    if formulario.is_valid():
+        formulario.save()
+        messages.success(request, "Pagamento registrado.")
+    else:
+        _mostrar_erros(request, formulario)
+    return redirect("venda_detalhe", pk=pk)
+
+
+@login_required
+@require_POST
+def venda_devolucao(request, pk):
+    venda = get_object_or_404(Venda, pk=pk)
+    if venda.status != "concluida":
+        messages.error(request, "Só vendas concluídas aceitam devoluções.")
+        return redirect("venda_detalhe", pk=pk)
+    formulario = DevolucaoForm(request.POST, instance=Devolucao(venda=venda))
+    if formulario.is_valid():
+        formulario.save()
+        messages.success(request, "Devolução registrada e estoque atualizado.")
+    else:
+        _mostrar_erros(request, formulario)
+    return redirect("venda_detalhe", pk=pk)
+
+
+@login_required
+@require_POST
+def venda_cancelar(request, pk):
+    venda = get_object_or_404(Venda, pk=pk)
+    venda.motivo_cancelamento = request.POST.get("motivo", "").strip()
+    try:
+        venda.cancelar()
+    except ValidationError as erro:
+        for mensagem in erro.messages:
+            messages.error(request, mensagem)
+    else:
+        messages.success(request, "Venda cancelada e estoque devolvido.")
+    return redirect("venda_detalhe", pk=pk)    

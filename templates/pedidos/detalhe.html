@@ -15,8 +15,9 @@
   <p><strong>Vendedor:</strong> {{ object.vendedor }}</p>
   <p><strong>Data:</strong> {{ object.data|date:"d/m/Y H:i" }}</p>
   {% if object.venda %}
-    <p><strong>Venda:</strong> nº {{ object.venda.pk }}
-      ({{ object.venda.get_forma_pagamento_display }})</p>
+  <p><strong>Venda:</strong>
+    <a href="{% url 'venda_detalhe' object.venda.pk %}">nº {{ object.venda.pk }}</a>
+    ({{ object.venda.get_forma_pagamento_display }})</p>
   {% endif %}
 </div>
 

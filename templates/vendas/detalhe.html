@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block titulo %}Venda {{ object.pk }}{% endblock %}
+
+{% block conteudo %}
+<div class="barra">
+  <h1>Venda {{ object.pk }}
+    <span class="selo {{ object.status }}">{{ object.get_status_display }}</span>
+  </h1>
+  <a href="{% url 'venda_lista' %}">« Voltar</a>
+</div>
+
+<div class="cartao">
+  <p><strong>Cliente:</strong> {{ object.cliente }}</p>
+  <p><strong>Vendedor:</strong> {{ object.vendedor }}</p>
+  <p><strong>Data:</strong> {{ object.data|date:"d/m/Y H:i" }}</p>
+  <p><strong>Forma de pagamento:</strong> {{ object.get_forma_pagamento_display }}</p>
+  <p><strong>Pedido:</strong>
+    <a href="{% url 'pedido_detalhe' object.pedido.pk %}">nº {{ object.pedido.pk }}</a></p>
+  {% if object.status == "cancelada" %}
+    <p><strong>Motivo do cancelamento:</strong> {{ object.motivo_cancelamento }}</p>
+  {% endif %}
+</div>
+
+<div class="cartao espaco">
+  <h2>Itens</h2>
+  <table>
+    <thead>
+      <tr><th>Produto</th><th>Quantidade</th><th>Preço unitário</th><th>Subtotal</th></tr>
+    </thead>
+    <tbody>
+      {% for item in itens %}
+      <tr>
+        <td>{{ item.produto }}</td>
+        <td>{{ item.quantidade }}</td>
+        <td>R$ {{ item.preco_unitario|floatformat:2 }}</td>
+        <td>R$ {{ item.subtotal|floatformat:2 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr><td colspan="3" class="direita">Total do pedido</td><td>R$ {{ object.pedido.valor_total|floatformat:2 }}</td></tr>
+      <tr><td colspan="3" class="direita">Devoluções</td><td>- R$ {{ object.total_devolvido|floatformat:2 }}</td></tr>
+      <tr class="total"><td colspan="3" class="direita">Valor da venda</td><td>R$ {{ object.valor_total|floatformat:2 }}</td></tr>
+      <tr><td colspan="3" class="direita">Total pago</td><td>R$ {{ object.total_pago|floatformat:2 }}</td></tr>
+      <tr class="total"><td colspan="3" class="direita">Saldo devedor</td><td>R$ {{ object.saldo_devedor|floatformat:2 }}</td></tr>
+    </tfoot>
+  </table>
+  {% if object.saldo_devedor < 0 %}
+    <p class="erro">Saldo negativo: o cliente pagou mais do que o valor atual da venda.</p>
+  {% endif %}
+</div>
+
+<div class="grade espaco">
+  <div class="cartao">
+    <h2>Pagamentos</h2>
+    <table>
+      <thead><tr><th>Data</th><th>Forma</th><th>Valor</th></tr></thead>
+      <tbody>
+        {% for p in pagamentos %}
+        <tr>
+          <td>{{ p.data|date:"d/m/Y" }}</td>
+          <td>{{ p.get_forma_display }}</td>
+          <td>R$ {{ p.valor|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3">Nenhum pagamento registrado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if object.status == "concluida" %}
+    <form method="post" action="{% url 'venda_pagamento' object.pk %}" class="formulario">
+      {% csrf_token %}
+      <h3>Registrar pagamento</h3>
+      {{ form_pagamento.as_p }}
+      <button type="submit">Registrar</button>
+    </form>
+    {% endif %}
+  </div>
+
+  <div class="cartao">
+    <h2>Devoluções</h2>
+    <table>
+      <thead><tr><th>Produto</th><th>Qtd</th><th>Valor</th><th>Motivo</th></tr></thead>
+      <tbody>
+        {% for d in devolucoes %}
+        <tr>
+          <td>{{ d.produto }}</td>
+          <td>{{ d.quantidade }}</td>
+          <td>R$ {{ d.valor|floatformat:2 }}</td>
+          <td>{{ d.motivo }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4">Nenhuma devolução registrada.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if object.status == "concluida" %}
+    <form method="post" action="{% url 'venda_devolucao' object.pk %}" class="formulario">
+      {% csrf_token %}
+      <h3>Registrar devolução</h3>
+      {{ form_devolucao.as_p }}
+      <button type="submit">Registrar</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if object.status == "concluida" %}
+<div class="cartao espaco">
+  <h2>Cancelar venda</h2>
+  {% if pagamentos or devolucoes %}
+    <p>Esta venda tem pagamentos ou devoluções, então não pode ser cancelada por aqui.
+       Os pagamentos precisam ser estornados (excluídos) antes, pelo painel de cadastros.</p>
+  {% else %}
+    <form method="post" action="{% url 'venda_cancelar' object.pk %}" class="formulario">
+      {% csrf_token %}
+      <p>
+        <label for="motivo">Motivo do cancelamento:</label>
+        <input type="text" name="motivo" id="motivo" maxlength="255" required>
+      </p>
+      <button type="submit" class="botao-perigo">Cancelar venda</button>
+    </form>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,8 +1,11 @@
+from decimal import Decimal
+
 from django import forms
 from django.forms import inlineformset_factory
 
-from .models import Devolucao, ItemPedido, Pagamento, Pedido, Produto
-
+from .models import (
+    Compra, Devolucao, ItemCompra, ItemPedido, Pagamento, Pedido, Produto,
+)
 
 class ItemPedidoForm(forms.ModelForm):
     quantidade = forms.IntegerField(min_value=1)
@@ -49,3 +52,27 @@ class DevolucaoForm(forms.ModelForm):
             self.fields["produto"].queryset = Produto.objects.filter(
                 itempedido__pedido=self.instance.venda.pedido
             ).distinct()
+
+class ItemCompraForm(forms.ModelForm):
+    quantidade = forms.IntegerField(min_value=1)
+    custo = forms.DecimalField(
+        label="Custo unitário",
+        min_value=Decimal("0.01"),
+        max_digits=10,
+        decimal_places=2,
+    )
+
+    class Meta:
+        model = ItemCompra
+        fields = ["produto", "quantidade", "custo"]
+
+
+ItemCompraFormSet = inlineformset_factory(
+    Compra,
+    ItemCompra,
+    form=ItemCompraForm,
+    extra=0,
+    min_num=1,
+    validate_min=True,
+    can_delete=True,
+)            

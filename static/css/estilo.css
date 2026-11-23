@@ -152,3 +152,6 @@ tr.total td { font-weight: bold; font-size: 1.1em; }
 .cartao h2 { margin-top: 0; }
 .cartao .formulario { max-width: none; margin-top: 16px; }
 .cartao .formulario h3 { margin-bottom: 4px; }
+
+.selo.pendente { background: #fff3cd; color: #7a5b00; }
+.selo.recebida { background: #e3f5e8; color: #1b6b35; }

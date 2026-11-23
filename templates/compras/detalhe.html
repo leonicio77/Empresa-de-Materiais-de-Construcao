@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block titulo %}Compra {{ object.pk }}{% endblock %}
+
+{% block conteudo %}
+<div class="barra">
+  <h1>Compra {{ object.pk }}
+    <span class="selo {{ object.status }}">{{ object.get_status_display }}</span>
+  </h1>
+  <a href="{% url 'compra_lista' %}">« Voltar</a>
+</div>
+
+<div class="cartao">
+  <p><strong>Fornecedor:</strong> {{ object.fornecedor }}</p>
+  <p><strong>Data:</strong> {{ object.data|date:"d/m/Y H:i" }}</p>
+</div>
+
+<div class="cartao espaco">
+  <table>
+    <thead>
+      <tr>
+        <th>Produto</th>
+        <th>Quantidade</th>
+        <th>Custo unitário</th>
+        <th>Subtotal</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in itens %}
+      <tr>
+        <td>{{ item.produto }}</td>
+        <td>{{ item.quantidade }}</td>
+        <td>R$ {{ item.custo|floatformat:2 }}</td>
+        <td>R$ {{ item.subtotal|floatformat:2 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4">Nenhum item.</td></tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="total"><td colspan="3" class="direita">Total</td><td>R$ {{ object.valor_total|floatformat:2 }}</td></tr>
+    </tfoot>
+  </table>
+</div>
+
+{% if object.status == "pendente" %}
+<div class="acoes-pedido">
+  <a class="botao" href="{% url 'compra_editar' object.pk %}">Editar</a>
+  <form method="post" action="{% url 'compra_receber' object.pk %}">
+    {% csrf_token %}
+    <button type="submit">Marcar como recebida</button>
+  </form>
+  <form method="post" action="{% url 'compra_cancelar' object.pk %}">
+    {% csrf_token %}
+    <button type="submit" class="botao-perigo">Cancelar compra</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

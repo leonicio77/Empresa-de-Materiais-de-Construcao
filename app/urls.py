@@ -42,5 +42,11 @@ urlpatterns = [
     path("vendas/<int:pk>/pagamento/", views.venda_pagamento, name="venda_pagamento"),
     path("vendas/<int:pk>/devolucao/", views.venda_devolucao, name="venda_devolucao"),
     path("vendas/<int:pk>/cancelar/", views.venda_cancelar, name="venda_cancelar"),
+    path("compras/", views.CompraListView.as_view(), name="compra_lista"),
+    path("compras/nova/", views.CompraCreateView.as_view(), name="compra_novo"),
+    path("compras/<int:pk>/", views.CompraDetailView.as_view(), name="compra_detalhe"),
+    path("compras/<int:pk>/editar/", views.CompraUpdateView.as_view(), name="compra_editar"),
+    path("compras/<int:pk>/receber/", views.compra_receber, name="compra_receber"),
+    path("compras/<int:pk>/cancelar/", views.compra_cancelar, name="compra_cancelar"),
 ]
 

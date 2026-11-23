@@ -12,12 +12,13 @@ from django.views.generic import (
     CreateView, DeleteView, DetailView, ListView, UpdateView,
 )
 
-from .forms import DevolucaoForm, ItemPedidoFormSet, PagamentoForm
+from .forms import (
+    DevolucaoForm, ItemCompraFormSet, ItemPedidoFormSet, PagamentoForm,
+)
 from .models import (
-    Categoria, Cliente, Devolucao, Fornecedor, Funcionario,
+    Categoria, Cliente, Compra, Devolucao, Fornecedor, Funcionario,
     MovimentacaoEstoque, Pagamento, Pedido, Produto, Venda,
 )
-
 
 @login_required
 def home(request):
@@ -497,4 +498,110 @@ def venda_cancelar(request, pk):
             messages.error(request, mensagem)
     else:
         messages.success(request, "Venda cancelada e estoque devolvido.")
-    return redirect("venda_detalhe", pk=pk)    
+    return redirect("venda_detalhe", pk=pk)  
+
+# ---------- Compras ----------
+
+class CompraListView(BaseListView):
+    model = Compra
+    template_name = "compras/lista.html"
+    context_object_name = "compras"
+    campos_busca = ("fornecedor__nome",)
+    ordenacao = "-data"
+    paginate_by = 20
+
+    def get_queryset(self):
+        compras = (
+            super().get_queryset()
+            .select_related("fornecedor")
+            .prefetch_related("itens")
+        )
+        status = self.request.GET.get("status", "")
+        if status:
+            compras = compras.filter(status=status)
+        return compras
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        contexto["status_atual"] = self.request.GET.get("status", "")
+        contexto["opcoes_status"] = Compra.STATUS
+        return contexto
+
+
+class CompraSalvarMixin(LoginRequiredMixin):
+    model = Compra
+    fields = ["fornecedor"]
+    template_name = "compras/form.html"
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        if self.request.method == "POST":
+            contexto["formset"] = ItemCompraFormSet(
+                self.request.POST, instance=self.object
+            )
+        else:
+            contexto["formset"] = ItemCompraFormSet(instance=self.object)
+        return contexto
+
+    def form_valid(self, form):
+        formset = ItemCompraFormSet(self.request.POST, instance=self.object)
+        if not formset.is_valid():
+            return self.render_to_response(self.get_context_data(form=form))
+        with transaction.atomic():
+            self.object = form.save()
+            formset.instance = self.object
+            formset.save()
+        messages.success(self.request, "Compra salva com sucesso.")
+        return redirect("compra_detalhe", pk=self.object.pk)
+
+
+class CompraCreateView(CompraSalvarMixin, CreateView):
+    pass
+
+
+class CompraUpdateView(CompraSalvarMixin, UpdateView):
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            compra = self.get_object()
+            if compra.status != "pendente":
+                messages.error(request, "Só é possível editar compras pendentes.")
+                return redirect("compra_detalhe", pk=compra.pk)
+        return super().dispatch(request, *args, **kwargs)
+
+
+class CompraDetailView(LoginRequiredMixin, DetailView):
+    model = Compra
+    template_name = "compras/detalhe.html"
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        contexto["itens"] = self.object.itens.select_related("produto")
+        return contexto
+
+
+@login_required
+@require_POST
+def compra_receber(request, pk):
+    compra = get_object_or_404(Compra, pk=pk)
+    try:
+        compra.receber()
+    except ValidationError as erro:
+        for mensagem in erro.messages:
+            messages.error(request, mensagem)
+    else:
+        messages.success(request, "Compra recebida e estoque atualizado.")
+    return redirect("compra_detalhe", pk=pk)
+
+
+@login_required
+@require_POST
+def compra_cancelar(request, pk):
+    compra = get_object_or_404(Compra, pk=pk)
+    try:
+        compra.cancelar()
+    except ValidationError as erro:
+        for mensagem in erro.messages:
+            messages.error(request, mensagem)
+    else:
+        messages.success(request, "Compra cancelada.")
+    return redirect("compra_detalhe", pk=pk)      

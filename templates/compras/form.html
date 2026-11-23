@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block titulo %}Compra{% endblock %}
+
+{% block conteudo %}
+<div class="cartao formulario formulario-largo">
+  <h1>{% if object %}Editar compra {{ object.pk }}{% else %}Nova compra{% endif %}</h1>
+
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+
+    <h2>Itens da compra</h2>
+    {{ formset.management_form }}
+    {% if formset.non_form_errors %}
+      <p class="erro">{{ formset.non_form_errors }}</p>
+    {% endif %}
+
+    <table class="itens">
+      <thead>
+        <tr><th>Produto</th><th>Quantidade</th><th>Custo unitário (R$)</th><th>Remover</th></tr>
+      </thead>
+      <tbody id="itens-corpo">
+        {% for f in formset %}
+        <tr class="item-form">
+          <td>
+            {% for h in f.hidden_fields %}{{ h }}{% endfor %}
+            {{ f.produto.errors }}{{ f.produto }}
+          </td>
+          <td>{{ f.quantidade.errors }}{{ f.quantidade }}</td>
+          <td>{{ f.custo.errors }}{{ f.custo }}</td>
+          <td>{{ f.DELETE }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <button type="button" id="adicionar-item" class="secundario">+ Adicionar produto</button>
+
+    <template id="modelo-linha">
+      <tr class="item-form">
+        <td>
+          {% for h in formset.empty_form.hidden_fields %}{{ h }}{% endfor %}
+          {{ formset.empty_form.produto }}
+        </td>
+        <td>{{ formset.empty_form.quantidade }}</td>
+        <td>{{ formset.empty_form.custo }}</td>
+        <td>{{ formset.empty_form.DELETE }}</td>
+      </tr>
+    </template>
+
+    <p>
+      <button type="submit">Salvar compra</button>
+      <a href="{% url 'compra_lista' %}">Cancelar</a>
+    </p>
+  </form>
+</div>
+
+<script>
+  const prefixo = "{{ formset.prefix }}";
+  const total = document.getElementById("id_" + prefixo + "-TOTAL_FORMS");
+  const corpo = document.getElementById("itens-corpo");
+  const modelo = document.getElementById("modelo-linha");
+
+  document.getElementById("adicionar-item").addEventListener("click", function () {
+    const html = modelo.innerHTML.replace(/__prefix__/g, total.value);
+    corpo.insertAdjacentHTML("beforeend", html);
+    total.value = parseInt(total.value) + 1;
+  });
+</script>
+{% endblock %}

@@ -103,6 +103,15 @@ class Promocao(models.Model):
     class Meta:
         verbose_name = "Promoção"
         verbose_name_plural = "Promoções"
+        
+    @property
+    def situacao(self):
+        hoje = timezone.localdate()
+        if hoje < self.data_inicio:
+            return "Futura"
+        if hoje > self.data_fim:
+            return "Encerrada"
+        return "Vigente"
 
     def __str__(self):
         return self.nome    

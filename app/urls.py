@@ -48,5 +48,25 @@ urlpatterns = [
     path("compras/<int:pk>/editar/", views.CompraUpdateView.as_view(), name="compra_editar"),
     path("compras/<int:pk>/receber/", views.compra_receber, name="compra_receber"),
     path("compras/<int:pk>/cancelar/", views.compra_cancelar, name="compra_cancelar"),
+    
+    path("despesas/", views.DespesaListView.as_view(), name="despesa_lista"),
+    path("despesas/nova/", views.DespesaCreateView.as_view(), name="despesa_novo"),
+    path("despesas/<int:pk>/editar/", views.DespesaUpdateView.as_view(), name="despesa_editar"),
+    path("despesas/<int:pk>/excluir/", views.DespesaDeleteView.as_view(), name="despesa_excluir"),
+    path("despesas/<int:pk>/pagar/", views.despesa_pagar, name="despesa_pagar"),
+
+    path("comissoes/", views.ComissaoListView.as_view(), name="comissao_lista"),
+    path("comissoes/nova/", views.ComissaoCreateView.as_view(), name="comissao_novo"),
+
+    path("promocoes/", views.PromocaoListView.as_view(), name="promocao_lista"),
+    path("promocoes/nova/", views.PromocaoCreateView.as_view(), name="promocao_novo"),
+    path("promocoes/<int:pk>/editar/", views.PromocaoUpdateView.as_view(), name="promocao_editar"),
+    path("promocoes/<int:pk>/excluir/", views.PromocaoDeleteView.as_view(), name="promocao_excluir"),
+
+    path("entregas/", views.EntregaListView.as_view(), name="entrega_lista"),
+    path("entregas/nova/", views.EntregaCreateView.as_view(), name="entrega_novo"),
+    path("entregas/<int:pk>/editar/", views.EntregaUpdateView.as_view(), name="entrega_editar"),
+    path("entregas/<int:pk>/excluir/", views.EntregaDeleteView.as_view(), name="entrega_excluir"),
+    path("entregas/<int:pk>/status/", views.entrega_status, name="entrega_status"),
 ]
 

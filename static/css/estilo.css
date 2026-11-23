@@ -155,3 +155,15 @@ tr.total td { font-weight: bold; font-size: 1.1em; }
 
 .selo.pendente { background: #fff3cd; color: #7a5b00; }
 .selo.recebida { background: #e3f5e8; color: #1b6b35; }
+
+.resumo { margin: 12px 0; font-size: 1.05em; }
+
+.acoes { flex-wrap: wrap; align-items: center; }
+.acoes form { margin: 0; }
+button.pequeno { padding: 4px 10px; font-size: 13px; }
+
+.selo.paga, .selo.vigente, .selo.entregue { background: #e3f5e8; color: #1b6b35; }
+.selo.atrasada, .selo.nao_entregue { background: #fde8ea; color: #b00020; }
+.selo.a-pagar { background: #fff3cd; color: #7a5b00; }
+.selo.futura, .selo.em_rota { background: #d6e8ff; color: #1b4f9c; }
+.selo.encerrada { background: #e3e6ea; color: #555; }

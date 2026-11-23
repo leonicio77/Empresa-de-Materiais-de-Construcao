@@ -4,20 +4,23 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import ProtectedError, Q
+from django.db.models import ProtectedError, Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django.views.generic import (
     CreateView, DeleteView, DetailView, ListView, UpdateView,
 )
 
 from .forms import (
-    DevolucaoForm, ItemCompraFormSet, ItemPedidoFormSet, PagamentoForm,
+    ComissaoForm, DespesaForm, DevolucaoForm, EntregaEditForm, EntregaForm,
+    ItemCompraFormSet, ItemPedidoFormSet, PagamentoForm, PromocaoForm,
 )
 from .models import (
-    Categoria, Cliente, Compra, Devolucao, Fornecedor, Funcionario,
-    MovimentacaoEstoque, Pagamento, Pedido, Produto, Venda,
+    Categoria, Cliente, Comissao, Compra, Despesa, Devolucao, Entrega,
+    Fornecedor, Funcionario, MovimentacaoEstoque, Pagamento, Pedido,
+    Produto, Promocao, Venda,
 )
 
 @login_required
@@ -604,4 +607,202 @@ def compra_cancelar(request, pk):
             messages.error(request, mensagem)
     else:
         messages.success(request, "Compra cancelada.")
-    return redirect("compra_detalhe", pk=pk)      
+    return redirect("compra_detalhe", pk=pk) 
+
+# ---------- Despesas ----------
+
+class DespesaListView(BaseListView):
+    model = Despesa
+    template_name = "despesas/lista.html"
+    context_object_name = "despesas"
+    campos_busca = ("descricao",)
+    ordenacao = "vencimento"
+    paginate_by = 20
+
+    def get_queryset(self):
+        despesas = super().get_queryset()
+        situacao = self.request.GET.get("situacao", "")
+        hoje = timezone.localdate()
+        if situacao == "paga":
+            despesas = despesas.filter(data_pagamento__isnull=False)
+        elif situacao == "atrasada":
+            despesas = despesas.filter(
+                data_pagamento__isnull=True, vencimento__lt=hoje
+            )
+        elif situacao == "a_pagar":
+            despesas = despesas.filter(
+                data_pagamento__isnull=True, vencimento__gte=hoje
+            )
+        return despesas
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        contexto["situacao_atual"] = self.request.GET.get("situacao", "")
+        contexto["opcoes_situacao"] = [
+            ("a_pagar", "A pagar"), ("atrasada", "Atrasada"), ("paga", "Paga"),
+        ]
+        total = Despesa.objects.filter(data_pagamento__isnull=True).aggregate(
+            total=Sum("valor")
+        )["total"]
+        contexto["total_em_aberto"] = total or 0
+        return contexto
+
+
+class DespesaCreateView(BaseCreateView):
+    model = Despesa
+    form_class = DespesaForm
+    prefixo = "despesa"
+    nome = "despesa"
+
+
+class DespesaUpdateView(BaseUpdateView):
+    model = Despesa
+    form_class = DespesaForm
+    prefixo = "despesa"
+    nome = "despesa"
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            despesa = self.get_object()
+            if Comissao.objects.filter(despesa=despesa).exists():
+                messages.error(
+                    request,
+                    "Despesas geradas por comissão só podem ser marcadas como pagas.",
+                )
+                return redirect("despesa_lista")
+        return super().dispatch(request, *args, **kwargs)
+
+
+class DespesaDeleteView(BaseDeleteView):
+    model = Despesa
+    prefixo = "despesa"
+    nome = "despesa"
+
+
+@login_required
+@require_POST
+def despesa_pagar(request, pk):
+    despesa = get_object_or_404(Despesa, pk=pk)
+    if despesa.data_pagamento:
+        messages.error(request, "Esta despesa já está paga.")
+    else:
+        despesa.data_pagamento = timezone.localdate()
+        despesa.save()
+        messages.success(request, "Despesa marcada como paga.")
+    return redirect("despesa_lista")
+
+
+# ---------- Comissões ----------
+
+class ComissaoListView(BaseListView):
+    model = Comissao
+    template_name = "comissoes/lista.html"
+    context_object_name = "comissoes"
+    campos_busca = ("vendedor__nome",)
+    ordenacao = "-criada_em"
+    paginate_by = 20
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("vendedor", "despesa")
+
+
+class ComissaoCreateView(BaseCreateView):
+    model = Comissao
+    form_class = ComissaoForm
+    prefixo = "comissao"
+    nome = "comissão"
+
+
+# ---------- Promoções ----------
+
+class PromocaoListView(BaseListView):
+    model = Promocao
+    template_name = "promocoes/lista.html"
+    context_object_name = "promocoes"
+    campos_busca = ("nome",)
+    ordenacao = "-data_inicio"
+
+    def get_queryset(self):
+        return super().get_queryset().prefetch_related("produtos")
+
+
+class PromocaoCreateView(BaseCreateView):
+    model = Promocao
+    form_class = PromocaoForm
+    prefixo = "promocao"
+    nome = "promoção"
+
+
+class PromocaoUpdateView(BaseUpdateView):
+    model = Promocao
+    form_class = PromocaoForm
+    prefixo = "promocao"
+    nome = "promoção"
+
+
+class PromocaoDeleteView(BaseDeleteView):
+    model = Promocao
+    prefixo = "promocao"
+    nome = "promoção"
+
+
+# ---------- Entregas ----------
+
+class EntregaListView(BaseListView):
+    model = Entrega
+    template_name = "entregas/lista.html"
+    context_object_name = "entregas"
+    campos_busca = ("venda__pedido__cliente__nome", "endereco")
+    ordenacao = "data_prevista"
+    paginate_by = 20
+
+    def get_queryset(self):
+        entregas = super().get_queryset().select_related(
+            "venda__pedido__cliente", "entregador"
+        )
+        status = self.request.GET.get("status", "")
+        if status:
+            entregas = entregas.filter(status=status)
+        return entregas
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        contexto["status_atual"] = self.request.GET.get("status", "")
+        contexto["opcoes_status"] = Entrega.STATUS
+        return contexto
+
+
+class EntregaCreateView(BaseCreateView):
+    model = Entrega
+    form_class = EntregaForm
+    prefixo = "entrega"
+    nome = "entrega"
+
+
+class EntregaUpdateView(BaseUpdateView):
+    model = Entrega
+    form_class = EntregaEditForm
+    prefixo = "entrega"
+    nome = "entrega"
+
+
+class EntregaDeleteView(BaseDeleteView):
+    model = Entrega
+    prefixo = "entrega"
+    nome = "entrega"
+
+
+@login_required
+@require_POST
+def entrega_status(request, pk):
+    entrega = get_object_or_404(Entrega, pk=pk)
+    novo = request.POST.get("status", "")
+    if novo not in dict(Entrega.STATUS):
+        messages.error(request, "Status inválido.")
+    elif entrega.status == "entregue":
+        messages.error(request, "Esta entrega já foi concluída.")
+    else:
+        entrega.status = novo
+        entrega.save()
+        messages.success(request, "Status da entrega atualizado.")
+    return redirect("entrega_lista")         

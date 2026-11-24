@@ -7,7 +7,10 @@
   <h1>Venda {{ object.pk }}
     <span class="selo {{ object.status }}">{{ object.get_status_display }}</span>
   </h1>
-  <a href="{% url 'venda_lista' %}">« Voltar</a>
+  <div>
+    <a class="botao" href="{% url 'venda_nota' object.pk %}" target="_blank">Nota em PDF</a>
+    <a href="{% url 'venda_lista' %}">« Voltar</a>
+  </div>
 </div>
 
 <div class="cartao">

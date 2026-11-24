@@ -2,6 +2,7 @@ import csv
 from datetime import timedelta
 from decimal import Decimal
 from urllib.parse import urlencode
+from .pdf import gerar_documento
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -931,4 +932,102 @@ def relatorio(request, tipo):
         "vendedores": Funcionario.objects.filter(cargo="vendedor").order_by("nome"),
         "querystring": urlencode(parametros),
     }
-    return render(request, "relatorios/relatorio.html", contexto)           
+    return render(request, "relatorios/relatorio.html", contexto) 
+
+# ---------- PDF (pedido e nota de venda) ----------
+
+def _resposta_pdf(conteudo, nome_arquivo):
+    resposta = HttpResponse(conteudo, content_type="application/pdf")
+    resposta["Content-Disposition"] = f'inline; filename="{nome_arquivo}"'
+    return resposta
+
+
+def _itens_para_pdf(itens):
+    return [
+        (
+            item.produto.nome,
+            item.quantidade,
+            relatorios.moeda(item.preco_unitario),
+            relatorios.moeda(item.subtotal),
+        )
+        for item in itens
+    ]
+
+
+@login_required
+@area_required("pedidos")
+def pedido_pdf(request, pk):
+    pedido = get_object_or_404(
+        Pedido.objects.select_related("cliente", "vendedor"), pk=pk
+    )
+    itens = pedido.itens.select_related("produto")
+    cliente = pedido.cliente
+    info = [
+        ("Cliente", cliente.nome),
+        ("CPF/CNPJ", cliente.cpf_cnpj),
+        ("Telefone", cliente.telefone),
+        ("Endereço", cliente.endereco),
+        ("Vendedor", pedido.vendedor.nome),
+        ("Data do pedido", timezone.localtime(pedido.data).strftime("%d/%m/%Y %H:%M")),
+        ("Situação", pedido.get_status_display()),
+    ]
+    totais = [
+        ["Subtotal", "R$ " + relatorios.moeda(pedido.subtotal)],
+        ["Desconto", "- R$ " + relatorios.moeda(pedido.desconto)],
+        ["Total", "R$ " + relatorios.moeda(pedido.valor_total)],
+    ]
+    conteudo = gerar_documento(
+        "Pedido",
+        pedido.pk,
+        info,
+        _itens_para_pdf(itens),
+        totais,
+        observacao="Documento para conferência. Sem valor fiscal.",
+    )
+    return _resposta_pdf(conteudo, f"pedido_{pedido.pk}.pdf")
+
+
+@login_required
+@area_required("vendas")
+def venda_nota(request, pk):
+    venda = get_object_or_404(
+        Venda.objects.select_related("pedido__cliente", "pedido__vendedor"),
+        pk=pk,
+    )
+    pedido = venda.pedido
+    cliente = pedido.cliente
+    itens = pedido.itens.select_related("produto")
+    info = [
+        ("Cliente", cliente.nome),
+        ("CPF/CNPJ", cliente.cpf_cnpj),
+        ("Telefone", cliente.telefone),
+        ("Endereço", cliente.endereco),
+        ("Vendedor", pedido.vendedor.nome),
+        ("Pedido", f"nº {pedido.pk}"),
+        ("Data da venda", timezone.localtime(venda.data).strftime("%d/%m/%Y %H:%M")),
+        ("Forma de pagamento", venda.get_forma_pagamento_display()),
+    ]
+    totais = [
+        ["Total do pedido", "R$ " + relatorios.moeda(pedido.valor_total)],
+        ["Devoluções", "- R$ " + relatorios.moeda(venda.total_devolvido)],
+        ["Valor da venda", "R$ " + relatorios.moeda(venda.valor_total)],
+        ["Total pago", "R$ " + relatorios.moeda(venda.total_pago)],
+        ["Saldo devedor", "R$ " + relatorios.moeda(venda.saldo_devedor)],
+    ]
+    pagamentos = [
+        (p.data.strftime("%d/%m/%Y"), p.get_forma_display(), relatorios.moeda(p.valor))
+        for p in venda.pagamentos.all()
+    ]
+    observacao = "Comprovante interno de venda. Sem valor fiscal."
+    if venda.status == "cancelada":
+        observacao = "VENDA CANCELADA. " + observacao
+    conteudo = gerar_documento(
+        "Nota de venda",
+        venda.pk,
+        info,
+        _itens_para_pdf(itens),
+        totais,
+        pagamentos=pagamentos,
+        observacao=observacao,
+    )
+    return _resposta_pdf(conteudo, f"nota_venda_{venda.pk}.pdf")

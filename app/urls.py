@@ -71,5 +71,7 @@ urlpatterns = [
     
     path("relatorios/", views.relatorios_indice, name="relatorio_indice"),
     path("relatorios/<slug:tipo>/", views.relatorio, name="relatorio"),
+    path("pedidos/<int:pk>/pdf/", views.pedido_pdf, name="pedido_pdf"),
+    path("vendas/<int:pk>/nota/", views.venda_nota, name="venda_nota"),
 ]
 

@@ -52,6 +52,7 @@
 </div>
 
 <div class="acoes-pedido">
+  <a class="botao" href="{% url 'pedido_pdf' object.pk %}" target="_blank">Gerar PDF</a>
   {% if object.status == "aberto" %}
     <a class="botao" href="{% url 'pedido_editar' object.pk %}">Editar</a>
     <form method="post" action="{% url 'pedido_aprovar' object.pk %}">
@@ -81,3 +82,4 @@
   {% endif %}
 </div>
 {% endblock %}
+

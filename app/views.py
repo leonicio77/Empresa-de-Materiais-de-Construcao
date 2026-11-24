@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
+from .permissoes import AreaMixin, area_required
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -30,7 +30,7 @@ def home(request):
 
 # ---------- Views-base (a lógica comum a todos os cadastros) ----------
 
-class BaseListView(LoginRequiredMixin, ListView):
+class BaseListView(AreaMixin, ListView):
     campos_busca = ()
     ordenacao = "nome"
 
@@ -50,7 +50,7 @@ class BaseListView(LoginRequiredMixin, ListView):
         return contexto
 
 
-class BaseFormMixin(LoginRequiredMixin, SuccessMessageMixin):
+class BaseFormMixin(AreaMixin,  SuccessMessageMixin):
     template_name = "crud/form.html"
     prefixo = ""
     nome = ""
@@ -76,7 +76,7 @@ class BaseUpdateView(BaseFormMixin, UpdateView):
     pass
 
 
-class BaseDeleteView(LoginRequiredMixin, DeleteView):
+class BaseDeleteView(AreaMixin, DeleteView):
     template_name = "crud/confirmar_exclusao.html"
     prefixo = ""
     nome = ""
@@ -173,7 +173,7 @@ class FuncionarioListView(BaseListView):
 class FuncionarioCreateView(BaseCreateView):
     model = Funcionario
     fields = ["nome", "cpf", "telefone", "endereco", "cargo",
-              "salario", "percentual_comissao"]
+              "salario", "percentual_comissao", "usuario"]
     prefixo = "funcionario"
     nome = "funcionário"
 
@@ -181,7 +181,7 @@ class FuncionarioCreateView(BaseCreateView):
 class FuncionarioUpdateView(BaseUpdateView):
     model = Funcionario
     fields = ["nome", "cpf", "telefone", "endereco", "cargo",
-              "salario", "percentual_comissao"]
+              "salario", "percentual_comissao", "usuario"]
     prefixo = "funcionario"
     nome = "funcionário"
 
@@ -302,7 +302,7 @@ class PedidoListView(BaseListView):
         return contexto
 
 
-class PedidoSalvarMixin(LoginRequiredMixin):
+class PedidoSalvarMixin(AreaMixin):
     model = Pedido
     fields = ["cliente", "vendedor", "desconto"]
     template_name = "pedidos/form.html"
@@ -328,6 +328,16 @@ class PedidoSalvarMixin(LoginRequiredMixin):
         messages.success(self.request, "Pedido salvo com sucesso.")
         return redirect("pedido_detalhe", pk=self.object.pk)
 
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        funcionario = getattr(self.request.user, "funcionario", None)
+        if funcionario and funcionario.cargo == "vendedor":
+            form.fields["vendedor"].queryset = Funcionario.objects.filter(
+                pk=funcionario.pk
+            )
+            form.fields["vendedor"].empty_label = None
+        return form    
+
 
 class PedidoCreateView(PedidoSalvarMixin, CreateView):
     pass
@@ -343,7 +353,7 @@ class PedidoUpdateView(PedidoSalvarMixin, UpdateView):
         return super().dispatch(request, *args, **kwargs)
 
 
-class PedidoDetailView(LoginRequiredMixin, DetailView):
+class PedidoDetailView(AreaMixin, DetailView):
     model = Pedido
     template_name = "pedidos/detalhe.html"
 
@@ -356,6 +366,7 @@ class PedidoDetailView(LoginRequiredMixin, DetailView):
 
 @login_required
 @require_POST
+@area_required("pedidos")
 def pedido_aprovar(request, pk):
     pedido = get_object_or_404(Pedido, pk=pk)
     if pedido.status != "aberto":
@@ -439,7 +450,7 @@ class VendaListView(BaseListView):
         return contexto
 
 
-class VendaDetailView(LoginRequiredMixin, DetailView):
+class VendaDetailView(AreaMixin, DetailView):
     model = Venda
     template_name = "vendas/detalhe.html"
 
@@ -531,7 +542,7 @@ class CompraListView(BaseListView):
         return contexto
 
 
-class CompraSalvarMixin(LoginRequiredMixin):
+class CompraSalvarMixin(AreaMixin):
     model = Compra
     fields = ["fornecedor"]
     template_name = "compras/form.html"
@@ -572,7 +583,7 @@ class CompraUpdateView(CompraSalvarMixin, UpdateView):
         return super().dispatch(request, *args, **kwargs)
 
 
-class CompraDetailView(LoginRequiredMixin, DetailView):
+class CompraDetailView(AreaMixin, DetailView):
     model = Compra
     template_name = "compras/detalhe.html"
 

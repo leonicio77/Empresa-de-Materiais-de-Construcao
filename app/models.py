@@ -4,6 +4,7 @@ from django.db import models, transaction
 from decimal import Decimal
 from django.utils import timezone
 from django.core.validators import MinValueValidator
+from django.conf import settings
 
 
 class Cliente(models.Model):
@@ -53,6 +54,15 @@ class Funcionario(models.Model):
     salario = models.DecimalField("salário", max_digits=10, decimal_places=2)
     percentual_comissao = models.DecimalField("% de comissao",max_digits=5, decimal_places=2,
     null=True, blank=True)
+
+    usuario = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="funcionario",
+        verbose_name="usuário de acesso",
+    )
 
     class Meta:
         verbose_name = "Funcionário"

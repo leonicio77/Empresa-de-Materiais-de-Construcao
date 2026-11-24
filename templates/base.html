@@ -13,21 +13,22 @@
     <strong>Materiais de Construção</strong>
     <nav>
       <a href="{% url 'home' %}">Início</a>
-      <a href="{% url 'pedido_lista' %}">Pedidos</a>
-      <a href="{% url 'venda_lista' %}">Vendas</a>
-      <a href="{% url 'cliente_lista' %}">Clientes</a>
-      <a href="{% url 'fornecedor_lista' %}">Fornecedores</a>
-      <a href="{% url 'funcionario_lista' %}">Funcionários</a>
-      <a href="{% url 'categoria_lista' %}">Categorias</a>
-      <a href="{% url 'produto_lista' %}">Produtos</a>
-      <a href="{% url 'movimentacao_lista' %}">Estoque</a>
-      <a href="{% url 'compra_lista' %}">Compras</a>
-      <a href="{% url 'entrega_lista' %}">Entregas</a>
-      <a href="{% url 'despesa_lista' %}">Despesas</a>
-      <a href="{% url 'comissao_lista' %}">Comissões</a>
-      <a href="{% url 'promocao_lista' %}">Promoções</a>
-      <a href="{% url 'admin:index' %}">Cadastros</a>
-     
+      {% if "pedidos" in areas %}<a href="{% url 'pedido_lista' %}">Pedidos</a>{% endif %}
+      {% if "vendas" in areas %}<a href="{% url 'venda_lista' %}">Vendas</a>{% endif %}
+      {% if "clientes" in areas %}<a href="{% url 'cliente_lista' %}">Clientes</a>{% endif %}
+      {% if "fornecedores" in areas %}<a href="{% url 'fornecedor_lista' %}">Fornecedores</a>{% endif %}
+      {% if "funcionarios" in areas %}<a href="{% url 'funcionario_lista' %}">Funcionários</a>{% endif %}
+      {% if "produtos" in areas %}
+        <a href="{% url 'categoria_lista' %}">Categorias</a>
+        <a href="{% url 'produto_lista' %}">Produtos</a>
+      {% endif %}
+      {% if "estoque" in areas %}<a href="{% url 'movimentacao_lista' %}">Estoque</a>{% endif %}
+      {% if "compras" in areas %}<a href="{% url 'compra_lista' %}">Compras</a>{% endif %}
+      {% if "entregas" in areas %}<a href="{% url 'entrega_lista' %}">Entregas</a>{% endif %}
+      {% if "despesas" in areas %}<a href="{% url 'despesa_lista' %}">Despesas</a>{% endif %}
+      {% if "comissoes" in areas %}<a href="{% url 'comissao_lista' %}">Comissões</a>{% endif %}
+      {% if "promocoes" in areas %}<a href="{% url 'promocao_lista' %}">Promoções</a>{% endif %}
+      {% if user.is_staff %}<a href="{% url 'admin:index' %}">Cadastros</a>{% endif %}
     </nav>
     <form method="post" action="{% url 'logout' %}">
       {% csrf_token %}

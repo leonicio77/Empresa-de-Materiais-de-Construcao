@@ -1,5 +1,7 @@
+import csv
 from datetime import timedelta
 from decimal import Decimal
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -7,6 +9,7 @@ from django.contrib.messages.views import SuccessMessageMixin
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import F, ProtectedError, Q, Sum
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -15,6 +18,7 @@ from django.views.generic import (
     CreateView, DeleteView, DetailView, ListView, UpdateView,
 )
 
+from . import relatorios
 from .forms import (
     ComissaoForm, DespesaForm, DevolucaoForm, EntregaEditForm, EntregaForm,
     ItemCompraFormSet, ItemPedidoFormSet, PagamentoForm, PromocaoForm,
@@ -869,4 +873,62 @@ def entrega_status(request, pk):
         entrega.status = novo
         entrega.save()
         messages.success(request, "Status da entrega atualizado.")
-    return redirect("entrega_lista")         
+    return redirect("entrega_lista")  
+
+# ---------- Relatórios ----------
+
+@login_required
+@area_required("relatorios")
+def relatorios_indice(request):
+    return render(
+        request,
+        "relatorios/indice.html",
+        {"relatorios": relatorios.RELATORIOS.items()},
+    )
+
+
+@login_required
+@area_required("relatorios")
+def relatorio(request, tipo):
+    config = relatorios.RELATORIOS.get(tipo)
+    if config is None:
+        raise Http404("Relatório não encontrado.")
+
+    hoje = timezone.localdate()
+    inicio = relatorios.ler_data(request.GET.get("inicio"), hoje.replace(day=1))
+    fim = relatorios.ler_data(request.GET.get("fim"), hoje)
+    vendedor = request.GET.get("vendedor", "")
+    if not vendedor.isdigit():
+        vendedor = ""
+
+    dados = config["func"](inicio, fim, vendedor)
+
+    if request.GET.get("formato") == "csv":
+        resposta = HttpResponse(content_type="text/csv; charset=utf-8")
+        resposta["Content-Disposition"] = f'attachment; filename="relatorio_{tipo}.csv"'
+        resposta.write("\ufeff")
+        escritor = csv.writer(resposta, delimiter=";")
+        escritor.writerow([config["titulo"]])
+        if config["periodo"]:
+            escritor.writerow([f"Período: {inicio:%d/%m/%Y} a {fim:%d/%m/%Y}"])
+        escritor.writerow([])
+        escritor.writerow(dados["colunas"])
+        escritor.writerows(dados["linhas"])
+        escritor.writerow([])
+        for rotulo, valor in dados["resumo"]:
+            escritor.writerow([rotulo, valor])
+        return resposta
+
+    parametros = {"inicio": inicio.isoformat(), "fim": fim.isoformat()}
+    if vendedor:
+        parametros["vendedor"] = vendedor
+    contexto = {
+        "config": config,
+        "dados": dados,
+        "inicio": inicio,
+        "fim": fim,
+        "vendedor": vendedor,
+        "vendedores": Funcionario.objects.filter(cargo="vendedor").order_by("nome"),
+        "querystring": urlencode(parametros),
+    }
+    return render(request, "relatorios/relatorio.html", contexto)           

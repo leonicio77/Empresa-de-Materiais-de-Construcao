@@ -175,3 +175,15 @@ button.pequeno { padding: 4px 10px; font-size: 13px; }
 
 .cartao h3 { margin: 16px 0 4px; font-size: 15px; }
 .cartao > a { color: #2f6fdb; text-decoration: none; }
+
+.resumo-cartoes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.resumo-cartoes .numero { font-size: 22px; margin: 4px 0 0; }
+.resumo-cartoes small { color: #666; }
+
+.rolagem { overflow-x: auto; }
+.busca label { display: flex; align-items: center; gap: 6px; }

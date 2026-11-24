@@ -18,6 +18,7 @@ PERMISSOES = {
     "despesas": {"gerente", "caixa"},
     "comissoes": {"gerente"},
     "promocoes": {"gerente"},
+    "relatorios": {"gerente"},
 }
 
 # Para as views genéricas descobrirem a área pelo model.

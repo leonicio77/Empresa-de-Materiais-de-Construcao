@@ -68,5 +68,8 @@ urlpatterns = [
     path("entregas/<int:pk>/editar/", views.EntregaUpdateView.as_view(), name="entrega_editar"),
     path("entregas/<int:pk>/excluir/", views.EntregaDeleteView.as_view(), name="entrega_excluir"),
     path("entregas/<int:pk>/status/", views.entrega_status, name="entrega_status"),
+    
+    path("relatorios/", views.relatorios_indice, name="relatorio_indice"),
+    path("relatorios/<slug:tipo>/", views.relatorio, name="relatorio"),
 ]
 

@@ -28,6 +28,7 @@
       {% if "despesas" in areas %}<a href="{% url 'despesa_lista' %}">Despesas</a>{% endif %}
       {% if "comissoes" in areas %}<a href="{% url 'comissao_lista' %}">Comissões</a>{% endif %}
       {% if "promocoes" in areas %}<a href="{% url 'promocao_lista' %}">Promoções</a>{% endif %}
+      {% if "relatorios" in areas %}<a href="{% url 'relatorio_indice' %}">Relatórios</a>{% endif %}
       {% if user.is_staff %}<a href="{% url 'admin:index' %}">Cadastros</a>{% endif %}
     </nav>
     <form method="post" action="{% url 'logout' %}">

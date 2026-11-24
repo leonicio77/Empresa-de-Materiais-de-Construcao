@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ config.titulo }}{% endblock %}
+
+{% block conteudo %}
+<div class="barra">
+  <h1>{{ config.titulo }}</h1>
+  <a href="{% url 'relatorio_indice' %}">« Relatórios</a>
+</div>
+
+<form method="get" class="busca">
+  {% if config.periodo %}
+    <label>De <input type="date" name="inicio" value="{{ inicio|date:'Y-m-d' }}"></label>
+    <label>Até <input type="date" name="fim" value="{{ fim|date:'Y-m-d' }}"></label>
+  {% endif %}
+  {% if config.vendedor %}
+    <select name="vendedor">
+      <option value="">Todos os vendedores</option>
+      {% for v in vendedores %}
+        <option value="{{ v.pk }}" {% if v.pk|stringformat:"s" == vendedor %}selected{% endif %}>{{ v.nome }}</option>
+      {% endfor %}
+    </select>
+  {% endif %}
+  <button type="submit">Gerar</button>
+  <a class="botao" href="?{{ querystring }}&formato=csv">Exportar CSV</a>
+</form>
+
+<div class="resumo-cartoes">
+  {% for rotulo, valor in dados.resumo %}
+    <div class="cartao">
+      <small>{{ rotulo }}</small>
+      <p class="numero">{{ valor }}</p>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="cartao">
+  <div class="rolagem">
+    <table>
+      <thead>
+        <tr>{% for coluna in dados.colunas %}<th>{{ coluna }}</th>{% endfor %}</tr>
+      </thead>
+      <tbody>
+        {% for linha in dados.linhas %}
+        <tr>{% for celula in linha %}<td>{{ celula }}</td>{% endfor %}</tr>
+        {% empty %}
+        <tr><td colspan="{{ dados.colunas|length }}">Nenhum dado no período.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

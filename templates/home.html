@@ -3,6 +3,78 @@
 {% block titulo %}Início{% endblock %}
 
 {% block conteudo %}
-<h1>Bem-vindo, {{ user.username }}</h1>
-<p>Escolha uma opção no menu para começar.</p>
+<h1>Olá, {{ user.username }}</h1>
+<p class="resumo">Hoje é {{ hoje|date:"l, d/m/Y" }}.</p>
+
+{% if not areas %}
+  <div class="cartao">
+    <p>Seu usuário ainda não está ligado a um funcionário.
+       Peça ao administrador para liberar o seu acesso.</p>
+  </div>
+{% endif %}
+
+<div class="grade">
+
+  {% if "vendas" in areas %}
+  <div class="cartao">
+    <h2>Vendas de hoje</h2>
+    <p class="numero">R$ {{ vendas_hoje_total|floatformat:2 }}</p>
+    <p>{{ vendas_hoje_qtd }} venda{{ vendas_hoje_qtd|pluralize }} concluída{{ vendas_hoje_qtd|pluralize }}</p>
+    <a href="{% url 'venda_lista' %}">Ver vendas »</a>
+  </div>
+  {% endif %}
+
+  {% if "despesas" in areas %}
+  <div class="cartao">
+    <h2>Contas</h2>
+    {% if despesas_atrasadas_qtd %}
+      <p class="numero negativo">R$ {{ despesas_atrasadas_total|floatformat:2 }}</p>
+      <p>{{ despesas_atrasadas_qtd }} conta{{ despesas_atrasadas_qtd|pluralize }} atrasada{{ despesas_atrasadas_qtd|pluralize }}</p>
+    {% else %}
+      <p class="positivo">Nenhuma conta atrasada.</p>
+    {% endif %}
+    <h3>Vencem nos próximos 7 dias</h3>
+    <ul class="lista-simples">
+      {% for d in despesas_a_vencer %}
+        <li>{{ d.vencimento|date:"d/m" }} - {{ d.get_tipo_display }}: R$ {{ d.valor|floatformat:2 }}</li>
+      {% empty %}
+        <li>Nada a vencer.</li>
+      {% endfor %}
+    </ul>
+    <a href="{% url 'despesa_lista' %}">Ver despesas »</a>
+  </div>
+  {% endif %}
+
+  {% if "estoque" in areas %}
+  <div class="cartao">
+    <h2>Estoque crítico</h2>
+    <ul class="lista-simples">
+      {% for p in estoque_critico %}
+        <li>{{ p.nome }}: <strong>{{ p.qtd_estoque }}</strong> (mínimo {{ p.estoque_minimo }})</li>
+      {% empty %}
+        <li class="positivo">Nenhum produto abaixo do mínimo.</li>
+      {% endfor %}
+    </ul>
+    <a href="{% url 'produto_lista' %}">Ver produtos »</a>
+  </div>
+  {% endif %}
+
+  {% if "entregas" in areas %}
+  <div class="cartao">
+    <h2>Entregas pendentes</h2>
+    <ul class="lista-simples">
+      {% for e in entregas_pendentes %}
+        <li>
+          {{ e.data_prevista|date:"d/m" }} - {{ e.venda.cliente }}
+          <span class="selo {{ e.status }}">{{ e.get_status_display }}</span>
+        </li>
+      {% empty %}
+        <li class="positivo">Nenhuma entrega pendente.</li>
+      {% endfor %}
+    </ul>
+    <a href="{% url 'entrega_lista' %}">Ver entregas »</a>
+  </div>
+  {% endif %}
+
+</div>
 {% endblock %}

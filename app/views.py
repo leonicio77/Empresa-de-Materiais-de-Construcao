@@ -1,10 +1,12 @@
+from datetime import timedelta
+from decimal import Decimal
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from .permissoes import AreaMixin, area_required
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import ProtectedError, Q, Sum
+from django.db.models import F, ProtectedError, Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -22,10 +24,61 @@ from .models import (
     Fornecedor, Funcionario, MovimentacaoEstoque, Pagamento, Pedido,
     Produto, Promocao, Venda,
 )
+from .permissoes import AreaMixin, area_required, areas_do_usuario
 
 @login_required
 def home(request):
-    return render(request, "home.html")
+    areas = areas_do_usuario(request.user)
+    hoje = timezone.localdate()
+    contexto = {"hoje": hoje}
+
+    if "vendas" in areas:
+        vendas = (
+            Venda.objects.filter(status="concluida", data__date=hoje)
+            .select_related("pedido")
+            .prefetch_related("pedido__itens", "devolucoes")
+        )
+        funcionario = getattr(request.user, "funcionario", None)
+        if (
+            funcionario
+            and funcionario.cargo == "vendedor"
+            and not request.user.is_superuser
+        ):
+            vendas = vendas.filter(pedido__vendedor=funcionario)
+        vendas = list(vendas)
+        contexto["vendas_hoje_qtd"] = len(vendas)
+        contexto["vendas_hoje_total"] = sum(
+            (v.valor_total for v in vendas), Decimal("0")
+        )
+
+    if "estoque" in areas:
+        contexto["estoque_critico"] = list(
+            Produto.objects.filter(qtd_estoque__lte=F("estoque_minimo"))
+            .order_by("qtd_estoque")[:10]
+        )
+
+    if "despesas" in areas:
+        em_aberto = Despesa.objects.filter(data_pagamento__isnull=True)
+        atrasadas = em_aberto.filter(vencimento__lt=hoje)
+        contexto["despesas_atrasadas_total"] = (
+            atrasadas.aggregate(total=Sum("valor"))["total"] or 0
+        )
+        contexto["despesas_atrasadas_qtd"] = atrasadas.count()
+        contexto["despesas_a_vencer"] = list(
+            em_aberto.filter(
+                vencimento__gte=hoje,
+                vencimento__lte=hoje + timedelta(days=7),
+            ).order_by("vencimento")
+        )
+
+    if "entregas" in areas:
+        contexto["entregas_pendentes"] = list(
+            Entrega.objects.filter(status__in=["pendente", "em_rota"])
+            .select_related("venda__pedido__cliente", "entregador")
+            .order_by("data_prevista")[:10]
+        )
+
+    return render(request, "home.html", contexto)
 
 
 # ---------- Views-base (a lógica comum a todos os cadastros) ----------

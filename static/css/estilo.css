@@ -167,3 +167,11 @@ button.pequeno { padding: 4px 10px; font-size: 13px; }
 .selo.a-pagar { background: #fff3cd; color: #7a5b00; }
 .selo.futura, .selo.em_rota { background: #d6e8ff; color: #1b4f9c; }
 .selo.encerrada { background: #e3e6ea; color: #555; }
+
+.numero { font-size: 28px; font-weight: bold; margin: 8px 0; }
+
+.lista-simples { list-style: none; padding: 0; margin: 8px 0 16px; }
+.lista-simples li { padding: 6px 0; border-bottom: 1px solid #e3e6ea; }
+
+.cartao h3 { margin: 16px 0 4px; font-size: 15px; }
+.cartao > a { color: #2f6fdb; text-decoration: none; }

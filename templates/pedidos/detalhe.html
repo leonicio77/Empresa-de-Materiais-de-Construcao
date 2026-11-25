@@ -15,9 +15,9 @@
   <p><strong>Vendedor:</strong> {{ object.vendedor }}</p>
   <p><strong>Data:</strong> {{ object.data|date:"d/m/Y H:i" }}</p>
   {% if object.venda %}
-  <p><strong>Venda:</strong>
-    <a href="{% url 'venda_detalhe' object.venda.pk %}">nº {{ object.venda.pk }}</a>
-    ({{ object.venda.get_forma_pagamento_display }})</p>
+    <p><strong>Venda:</strong>
+      <a href="{% url 'venda_detalhe' object.venda.pk %}">nº {{ object.venda.pk }}</a>
+      ({{ object.venda.get_forma_pagamento_display }})</p>
   {% endif %}
 </div>
 
@@ -53,24 +53,12 @@
 
 <div class="acoes-pedido">
   <a class="botao" href="{% url 'pedido_pdf' object.pk %}" target="_blank">Gerar PDF</a>
+
   {% if object.status == "aberto" %}
     <a class="botao" href="{% url 'pedido_editar' object.pk %}">Editar</a>
     <form method="post" action="{% url 'pedido_aprovar' object.pk %}">
       {% csrf_token %}
       <button type="submit">Aprovar pedido</button>
-    </form>
-  {% endif %}
-
-  {% if object.status == "aprovado" %}
-    <form method="post" action="{% url 'pedido_faturar' object.pk %}" class="linha">
-      {% csrf_token %}
-      <select name="forma_pagamento" required>
-        <option value="">Forma de pagamento...</option>
-        {% for valor, nome in formas_pagamento %}
-          <option value="{{ valor }}">{{ nome }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit">Registrar venda</button>
     </form>
   {% endif %}
 
@@ -81,5 +69,44 @@
     </form>
   {% endif %}
 </div>
-{% endblock %}
 
+{% if object.status == "aprovado" and form_faturar %}
+<form method="post" action="{% url 'pedido_faturar' object.pk %}" class="cartao formulario formulario-largo espaco">
+  {% csrf_token %}
+  <h2>Finalizar venda</h2>
+
+  <p>{{ form_faturar.forma_pagamento.label_tag }} {{ form_faturar.forma_pagamento }}</p>
+
+  <p id="campo-parcelas" hidden>
+    {{ form_faturar.parcelas.label_tag }} {{ form_faturar.parcelas }}
+  </p>
+
+  <p><label>{{ form_faturar.entregar }} Entregar este pedido</label></p>
+
+  <div id="campos-entrega" hidden>
+    <p>{{ form_faturar.endereco_entrega.label_tag }} {{ form_faturar.endereco_entrega }}</p>
+    <p>{{ form_faturar.data_prevista.label_tag }} {{ form_faturar.data_prevista }}</p>
+    <p>{{ form_faturar.frete.label_tag }} {{ form_faturar.frete }}</p>
+    <p>{{ form_faturar.entregador.label_tag }} {{ form_faturar.entregador }}</p>
+  </div>
+
+  <button type="submit">Registrar venda</button>
+</form>
+
+<script>
+  const forma = document.getElementById("id_forma_pagamento");
+  const campoParcelas = document.getElementById("campo-parcelas");
+  const entregar = document.getElementById("id_entregar");
+  const camposEntrega = document.getElementById("campos-entrega");
+
+  function atualizar() {
+    campoParcelas.hidden = forma.value !== "credito";
+    camposEntrega.hidden = !entregar.checked;
+  }
+
+  forma.addEventListener("change", atualizar);
+  entregar.addEventListener("change", atualizar);
+  atualizar();
+</script>
+{% endif %}
+{% endblock %}

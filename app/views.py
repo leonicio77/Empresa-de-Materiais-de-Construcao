@@ -2,7 +2,6 @@ import csv
 from datetime import timedelta
 from decimal import Decimal
 from urllib.parse import urlencode
-from .pdf import gerar_documento
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -22,15 +21,16 @@ from django.views.generic import (
 from . import relatorios
 from .forms import (
     ComissaoForm, DespesaForm, DevolucaoForm, EntregaEditForm, EntregaForm,
-    ItemCompraFormSet, ItemPedidoFormSet, PagamentoForm, PromocaoForm,
+    FaturarForm, ItemCompraFormSet, ItemPedidoFormSet, PagamentoForm,
+    PromocaoForm,
 )
 from .models import (
     Categoria, Cliente, Comissao, Compra, Despesa, Devolucao, Entrega,
-    Fornecedor, Funcionario, MovimentacaoEstoque, Pagamento, Pedido,
-    Produto, Promocao, Venda,
+    Fornecedor, Funcionario, MovimentacaoEstoque, Pagamento, Parcela,
+    Pedido, Produto, Promocao, Venda,
 )
+from .pdf import gerar_documento
 from .permissoes import AreaMixin, area_required, areas_do_usuario
-
 @login_required
 def home(request):
     areas = areas_do_usuario(request.user)
@@ -418,7 +418,8 @@ class PedidoDetailView(AreaMixin, DetailView):
     def get_context_data(self, **kwargs):
         contexto = super().get_context_data(**kwargs)
         contexto["itens"] = self.object.itens.select_related("produto")
-        contexto["formas_pagamento"] = Venda.FORMAS_PAGAMENTO
+        if self.object.status == "aprovado":
+            contexto["form_faturar"] = FaturarForm(pedido=self.object)
         return contexto
 
 
@@ -523,6 +524,7 @@ class VendaDetailView(AreaMixin, DetailView):
         contexto["devolucoes"] = venda.devolucoes.select_related("produto")
         contexto["form_pagamento"] = PagamentoForm(instance=Pagamento(venda=venda))
         contexto["form_devolucao"] = DevolucaoForm(instance=Devolucao(venda=venda))
+        contexto["cronograma"] = venda.cronograma.select_related("pagamento")
         return contexto
 
 
@@ -574,31 +576,32 @@ def venda_cancelar(request, pk):
 
 # ---------- Compras ----------
 
-class CompraListView(BaseListView):
-    model = Compra
-    template_name = "compras/lista.html"
-    context_object_name = "compras"
-    campos_busca = ("fornecedor__nome",)
+class VendaListView(BaseListView):
+    model = Venda
+    template_name = "vendas/lista.html"
+    context_object_name = "vendas"
+    campos_busca = ("pedido__cliente__nome",)
     ordenacao = "-data"
     paginate_by = 20
 
     def get_queryset(self):
-        compras = (
+        vendas = (
             super().get_queryset()
-            .select_related("fornecedor")
-            .prefetch_related("itens")
+            .select_related("pedido__cliente", "pedido__vendedor")
+            .prefetch_related(
+                "pedido__itens", "pagamentos", "devolucoes", "cronograma"
+            )
         )
         status = self.request.GET.get("status", "")
         if status:
-            compras = compras.filter(status=status)
-        return compras
+            vendas = vendas.filter(status=status)
+        return vendas
 
     def get_context_data(self, **kwargs):
         contexto = super().get_context_data(**kwargs)
         contexto["status_atual"] = self.request.GET.get("status", "")
-        contexto["opcoes_status"] = Compra.STATUS
+        contexto["opcoes_status"] = Venda.STATUS
         return contexto
-
 
 class CompraSalvarMixin(AreaMixin):
     model = Compra
@@ -1031,3 +1034,128 @@ def venda_nota(request, pk):
         observacao=observacao,
     )
     return _resposta_pdf(conteudo, f"nota_venda_{venda.pk}.pdf")
+
+@login_required
+@require_POST
+@area_required("vendas")
+def parcela_pagar(request, pk):
+    parcela = get_object_or_404(Parcela.objects.select_related("venda"), pk=pk)
+    try:
+        parcela.pagar()
+    except ValidationError as erro:
+        for mensagem in erro.messages:
+            messages.error(request, mensagem)
+    else:
+        messages.success(
+            request,
+            f"Parcela {parcela.numero}/{parcela.venda.parcelas} registrada como paga.",
+        )
+    return redirect("venda_detalhe", pk=parcela.venda_id)
+
+# ---------- Compras ----------
+
+class CompraListView(BaseListView):
+    model = Compra
+    template_name = "compras/lista.html"
+    context_object_name = "compras"
+    campos_busca = ("fornecedor__nome",)
+    ordenacao = "-data"
+    paginate_by = 20
+
+    def get_queryset(self):
+        compras = (
+            super().get_queryset()
+            .select_related("fornecedor")
+            .prefetch_related("itens")
+        )
+        status = self.request.GET.get("status", "")
+        if status:
+            compras = compras.filter(status=status)
+        return compras
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        contexto["status_atual"] = self.request.GET.get("status", "")
+        contexto["opcoes_status"] = Compra.STATUS
+        return contexto
+
+
+class CompraSalvarMixin(AreaMixin):
+    model = Compra
+    fields = ["fornecedor"]
+    template_name = "compras/form.html"
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        if self.request.method == "POST":
+            contexto["formset"] = ItemCompraFormSet(
+                self.request.POST, instance=self.object
+            )
+        else:
+            contexto["formset"] = ItemCompraFormSet(instance=self.object)
+        return contexto
+
+    def form_valid(self, form):
+        formset = ItemCompraFormSet(self.request.POST, instance=self.object)
+        if not formset.is_valid():
+            return self.render_to_response(self.get_context_data(form=form))
+        with transaction.atomic():
+            self.object = form.save()
+            formset.instance = self.object
+            formset.save()
+        messages.success(self.request, "Compra salva com sucesso.")
+        return redirect("compra_detalhe", pk=self.object.pk)
+
+
+class CompraCreateView(CompraSalvarMixin, CreateView):
+    pass
+
+
+class CompraUpdateView(CompraSalvarMixin, UpdateView):
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            compra = self.get_object()
+            if compra.status != "pendente":
+                messages.error(request, "Só é possível editar compras pendentes.")
+                return redirect("compra_detalhe", pk=compra.pk)
+        return super().dispatch(request, *args, **kwargs)
+
+
+class CompraDetailView(AreaMixin, DetailView):
+    model = Compra
+    template_name = "compras/detalhe.html"
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        contexto["itens"] = self.object.itens.select_related("produto")
+        return contexto
+
+
+@login_required
+@require_POST
+@area_required("compras")
+def compra_receber(request, pk):
+    compra = get_object_or_404(Compra, pk=pk)
+    try:
+        compra.receber()
+    except ValidationError as erro:
+        for mensagem in erro.messages:
+            messages.error(request, mensagem)
+    else:
+        messages.success(request, "Compra recebida e estoque atualizado.")
+    return redirect("compra_detalhe", pk=pk)
+
+
+@login_required
+@require_POST
+@area_required("compras")
+def compra_cancelar(request, pk):
+    compra = get_object_or_404(Compra, pk=pk)
+    try:
+        compra.cancelar()
+    except ValidationError as erro:
+        for mensagem in erro.messages:
+            messages.error(request, mensagem)
+    else:
+        messages.success(request, "Compra cancelada.")
+    return redirect("compra_detalhe", pk=pk)    

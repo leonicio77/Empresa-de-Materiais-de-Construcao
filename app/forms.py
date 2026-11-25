@@ -4,9 +4,23 @@ from django import forms
 from django.forms import inlineformset_factory
 
 from .models import (
-    Comissao, Compra, Despesa, Devolucao, Entrega, ItemCompra, ItemPedido,
-    Pagamento, Pedido, Produto, Promocao, Venda,
+    Comissao, Compra, Despesa, Devolucao, Entrega, Funcionario, ItemCompra,
+    ItemPedido, MAX_PARCELAS, PARCELA_MINIMA, Pagamento, Pedido, Produto,
+    Promocao, Venda,
 )
+from .relatorios import moeda
+
+
+class DataInput(forms.DateInput):
+    input_type = "date"
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("format", "%Y-%m-%d")
+        super().__init__(**kwargs)
+
+
+# ---------- Pedido ----------
+
 class ItemPedidoForm(forms.ModelForm):
     quantidade = forms.IntegerField(min_value=1)
 
@@ -32,13 +46,14 @@ ItemPedidoFormSet = inlineformset_factory(
     can_delete=True,
 )
 
+
+# ---------- Venda ----------
+
 class PagamentoForm(forms.ModelForm):
     class Meta:
         model = Pagamento
         fields = ["valor", "forma", "data"]
-        widgets = {
-            "data": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
-        }
+        widgets = {"data": DataInput()}
 
 
 class DevolucaoForm(forms.ModelForm):
@@ -52,6 +67,57 @@ class DevolucaoForm(forms.ModelForm):
             self.fields["produto"].queryset = Produto.objects.filter(
                 itempedido__pedido=self.instance.venda.pedido
             ).distinct()
+
+
+class FaturarForm(forms.Form):
+    forma_pagamento = forms.ChoiceField(
+        label="Forma de pagamento",
+        choices=[("", "Selecione...")] + Venda.FORMAS_PAGAMENTO,
+    )
+    parcelas = forms.ChoiceField(label="Parcelas", required=False)
+    entregar = forms.BooleanField(label="Entregar este pedido", required=False)
+    endereco_entrega = forms.CharField(
+        label="Endereço de entrega", max_length=255, required=False
+    )
+    data_prevista = forms.DateField(
+        label="Data prevista", required=False, widget=DataInput()
+    )
+    frete = forms.DecimalField(
+        label="Frete (R$)", required=False, min_value=Decimal("0"),
+        max_digits=10, decimal_places=2, initial=0,
+    )
+    entregador = forms.ModelChoiceField(
+        label="Entregador",
+        queryset=Funcionario.objects.filter(cargo="entregador"),
+        required=False,
+    )
+
+    def __init__(self, *args, pedido, **kwargs):
+        super().__init__(*args, **kwargs)
+        total = Decimal(pedido.valor_total)
+        opcoes = []
+        for n in range(1, MAX_PARCELAS + 1):
+            parcela = (total / n).quantize(Decimal("0.01"))
+            if n == 1:
+                opcoes.append(("1", f"À vista - R$ {moeda(total)}"))
+            elif parcela >= PARCELA_MINIMA:
+                opcoes.append((str(n), f"{n}x de R$ {moeda(parcela)} (sem juros)"))
+        self.fields["parcelas"].choices = opcoes
+        self.fields["parcelas"].initial = "1"
+        self.fields["endereco_entrega"].initial = pedido.cliente.endereco
+
+    def clean(self):
+        dados = super().clean()
+        if dados.get("forma_pagamento") == "credito":
+            dados["parcelas"] = int(dados.get("parcelas") or 1)
+        else:
+            dados["parcelas"] = 1
+        if dados.get("entregar") and not dados.get("data_prevista"):
+            self.add_error("data_prevista", "Informe a data prevista da entrega.")
+        return dados
+
+
+# ---------- Compra ----------
 
 class ItemCompraForm(forms.ModelForm):
     quantidade = forms.IntegerField(min_value=1)
@@ -75,15 +141,10 @@ ItemCompraFormSet = inlineformset_factory(
     min_num=1,
     validate_min=True,
     can_delete=True,
-)            
+)
 
-class DataInput(forms.DateInput):
-    input_type = "date"
 
-    def __init__(self, **kwargs):
-        kwargs.setdefault("format", "%Y-%m-%d")
-        super().__init__(**kwargs)
-
+# ---------- Despesa, comissão, promoção e entrega ----------
 
 class DespesaForm(forms.ModelForm):
     class Meta:

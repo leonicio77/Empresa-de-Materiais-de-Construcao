@@ -73,5 +73,7 @@ urlpatterns = [
     path("relatorios/<slug:tipo>/", views.relatorio, name="relatorio"),
     path("pedidos/<int:pk>/pdf/", views.pedido_pdf, name="pedido_pdf"),
     path("vendas/<int:pk>/nota/", views.venda_nota, name="venda_nota"),
+    path("parcelas/<int:pk>/pagar/", views.parcela_pagar, name="parcela_pagar"),
+
 ]
 

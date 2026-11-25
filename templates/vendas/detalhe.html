@@ -54,6 +54,43 @@
   {% endif %}
 </div>
 
+{% if cronograma %}
+<div class="cartao espaco">
+  <h2>Parcelas ({{ object.parcelas_pagas }} de {{ object.parcelas }} pagas)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Parcela</th>
+        <th>Vencimento</th>
+        <th>Valor</th>
+        <th>Situação</th>
+        <th>Pagamento</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in cronograma %}
+      <tr>
+        <td>{{ p.numero }}/{{ object.parcelas }}</td>
+        <td>{{ p.vencimento|date:"d/m/Y" }}</td>
+        <td>R$ {{ p.valor|floatformat:2 }}</td>
+        <td><span class="selo {{ p.situacao|slugify }}">{{ p.situacao }}</span></td>
+        <td>
+          {% if p.pagamento %}
+            Pago em {{ p.pagamento.data|date:"d/m/Y" }}
+          {% elif object.status == "concluida" %}
+            <form method="post" action="{% url 'parcela_pagar' p.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="pequeno">Registrar pagamento</button>
+            </form>
+          {% else %}-{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
 <div class="grade espaco">
   <div class="cartao">
     <h2>Pagamentos</h2>
@@ -74,8 +111,7 @@
     {% if object.status == "concluida" %}
     <form method="post" action="{% url 'venda_pagamento' object.pk %}" class="formulario">
       {% csrf_token %}
-      <h3>Registrar pagamento</h3>
-      {{ form_pagamento.as_p }}
+      <h3>Pagamento avulso (valor livre)</h3>      {{ form_pagamento.as_p }}
       <button type="submit">Registrar</button>
     </form>
     {% endif %}

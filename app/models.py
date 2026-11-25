@@ -1,11 +1,20 @@
-from django.db import models
-from django.core.exceptions import ValidationError
-from django.db import models, transaction
-from decimal import Decimal
-from django.utils import timezone
-from django.core.validators import MinValueValidator
-from django.conf import settings
+import calendar
+from decimal import ROUND_DOWN, Decimal
 
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
+from django.db import models, transaction
+from django.utils import timezone
+
+MAX_PARCELAS = 12
+PARCELA_MINIMA = Decimal("30.00")
+def somar_meses(data, meses):
+    mes = data.month - 1 + meses
+    ano = data.year + mes // 12
+    mes = mes % 12 + 1
+    dia = min(data.day, calendar.monthrange(ano, mes)[1])
+    return data.replace(year=ano, month=mes, day=dia)
 
 class Cliente(models.Model):
     nome = models.CharField(max_length=100)
@@ -240,9 +249,14 @@ class Venda(models.Model):
         ("pix", "Pix"),
         ("debito", "Cartão de débito"),
         ("credito", "Cartão de crédito"),
-        ("boleto", "Boleto"),
-        
+        ("boleto", "Boleto"),    
     ]
+
+    parcelas = models.PositiveSmallIntegerField(
+        default=1,
+        validators=[MinValueValidator(1), MaxValueValidator(MAX_PARCELAS)],
+    )
+
     STATUS = [
         ("concluida", "Concluída"),
         ("cancelada", "Cancelada"),
@@ -283,7 +297,30 @@ class Venda(models.Model):
 
     @property
     def saldo_devedor(self):
-        return self.valor_total - self.total_pago    
+        return self.valor_total - self.total_pago 
+
+    @property
+    def valor_parcela(self):
+        if not self.parcelas or self.parcelas <= 1:
+            return self.valor_total
+        return (Decimal(self.valor_total) / self.parcelas).quantize(Decimal("0.01")) 
+    
+    @property
+    def parcelas_pagas(self):
+        return sum(1 for p in self.cronograma.all() if p.pagamento_id)
+
+    def _gerar_parcelas(self):
+        total = Decimal(self.valor_total).quantize(Decimal("0.01"))
+        n = self.parcelas or 1
+        base = (total / n).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+        resto = total - base * n
+        hoje = timezone.localdate()
+        for numero in range(1, n + 1):
+            valor = base + (resto if numero == n else Decimal("0"))
+            vencimento = hoje if n == 1 else somar_meses(hoje, numero)
+            Parcela.objects.create(
+                venda=self, numero=numero, valor=valor, vencimento=vencimento
+            )          
 
     @property
     def total_devolvido(self):
@@ -296,6 +333,8 @@ class Venda(models.Model):
         return self.pedido.valor_total - self.total_devolvido
 
     def clean(self):
+        if self.forma_pagamento != "credito":
+            self.parcelas = 1
         if self.pk is None and self.pedido_id:
             itens = self.pedido.itens.all()
             if not itens:
@@ -308,6 +347,13 @@ class Venda(models.Model):
                     raise ValidationError(
                         f"Estoque insuficiente de {produto} "
                         f"(pedido: {qtd}, disponível: {produto.qtd_estoque})."
+                    )
+            if (self.parcelas or 1) > 1:
+                parcela = Decimal(self.pedido.valor_total) / self.parcelas
+                if parcela < PARCELA_MINIMA:
+                    raise ValidationError(
+                        f"A parcela mínima é de R$ {PARCELA_MINIMA:.2f}: "
+                        f"este valor não pode ser dividido em {self.parcelas}x."
                     )
 
     def save(self, *args, **kwargs):
@@ -325,6 +371,7 @@ class Venda(models.Model):
                     )
                 self.pedido.status = "faturado"
                 self.pedido.save()
+                self._gerar_parcelas()
 
     def cancelar(self):
         if self.status != "concluida":
@@ -338,6 +385,8 @@ class Venda(models.Model):
         if self.devolucoes.exists():
             raise ValidationError("A venda já tem devoluções e não pode ser cancelada.")
         with transaction.atomic():
+            self.cronograma.all().delete()
+            self.pedido.status = "cancelado"
             for item in self.pedido.itens.all():
                 produto = Produto.objects.get(pk=item.produto_id)
                 MovimentacaoEstoque.objects.create(
@@ -674,6 +723,62 @@ class Devolucao(models.Model):
     def __str__(self):
         return f"Devolução de {self.quantidade}x {self.produto} (venda {self.venda_id})"                                     
 
+class Parcela(models.Model):
+    venda = models.ForeignKey(
+        Venda, on_delete=models.CASCADE, related_name="cronograma"
+    )
+    numero = models.PositiveSmallIntegerField("parcela")
+    valor = models.DecimalField(max_digits=10, decimal_places=2)
+    vencimento = models.DateField()
+    pagamento = models.OneToOneField(
+        Pagamento,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        editable=False,
+        related_name="parcela",
+    )
+
+    class Meta:
+        verbose_name = "parcela"
+        verbose_name_plural = "parcelas"
+        ordering = ["numero"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["venda", "numero"], name="parcela_unica_por_venda"
+            )
+        ]
+
+    @property
+    def paga(self):
+        return self.pagamento_id is not None
+
+    @property
+    def situacao(self):
+        if self.paga:
+            return "Paga"
+        if self.vencimento < timezone.localdate():
+            return "Atrasada"
+        return "A vencer"
+
+    def pagar(self):
+        if self.paga:
+            raise ValidationError("Esta parcela já foi paga.")
+        if self.venda.status != "concluida":
+            raise ValidationError("Só vendas concluídas recebem pagamentos.")
+        with transaction.atomic():
+            pagamento = Pagamento(
+                venda=self.venda,
+                valor=self.valor,
+                forma=self.venda.forma_pagamento,
+            )
+            pagamento.full_clean()
+            pagamento.save()
+            self.pagamento = pagamento
+            self.save()
+
+    def __str__(self):
+        return f"Parcela {self.numero} da venda {self.venda_id}"
 
 
 

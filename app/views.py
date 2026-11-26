@@ -454,22 +454,49 @@ def pedido_cancelar(request, pk):
 
 @login_required
 @require_POST
+@area_required("vendas")
 def pedido_faturar(request, pk):
-    pedido = get_object_or_404(Pedido, pk=pk)
-    venda = Venda(
-        pedido=pedido,
-        forma_pagamento=request.POST.get("forma_pagamento", ""),
-    )
+    pedido = get_object_or_404(Pedido.objects.select_related("cliente"), pk=pk)
+    formulario = FaturarForm(request.POST, pedido=pedido)
+    if not formulario.is_valid():
+        for erros in formulario.errors.values():
+            for erro in erros:
+                messages.error(request, erro)
+        return redirect("pedido_detalhe", pk=pk)
+
+    dados = formulario.cleaned_data
     try:
-        venda.full_clean()
-        venda.save()
+        with transaction.atomic():
+            venda = Venda(
+                pedido=pedido,
+                forma_pagamento=dados["forma_pagamento"],
+                parcelas=dados["parcelas"],
+            )
+            venda.full_clean()
+            venda.save()
+            if dados["entregar"]:
+                entrega = Entrega(
+                    venda=venda,
+                    endereco=dados["endereco_entrega"],
+                    data_prevista=dados["data_prevista"],
+                    frete=dados["frete"] or Decimal("0"),
+                    entregador=dados["entregador"],
+                )
+                entrega.full_clean()
+                entrega.save()
     except ValidationError as erro:
         for mensagem in erro.messages:
             messages.error(request, mensagem)
-    else:
-        messages.success(request, "Venda registrada e estoque atualizado.")
-        return redirect("venda_detalhe", pk=venda.pk)
-    return redirect("pedido_detalhe", pk=pk)
+        return redirect("pedido_detalhe", pk=pk)
+
+    forma = venda.get_forma_pagamento_display()
+    if venda.parcelas > 1:
+        forma += f" em {venda.parcelas}x"
+    texto = f"Venda registrada ({forma})."
+    if dados["entregar"]:
+        texto += " Entrega agendada."
+    messages.success(request, texto)
+    return redirect("venda_detalhe", pk=venda.pk)
 
 # ---------- Vendas ----------
 

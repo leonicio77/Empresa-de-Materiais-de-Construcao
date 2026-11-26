@@ -108,8 +108,7 @@
         {% endfor %}
       </tbody>
     </table>
-    {% if object.status == "concluida" %}
-    <form method="post" action="{% url 'venda_pagamento' object.pk %}" class="formulario">
+    {% if object.status == "concluida" and not cronograma %}    <form method="post" action="{% url 'venda_pagamento' object.pk %}" class="formulario">
       {% csrf_token %}
       <h3>Pagamento avulso (valor livre)</h3>      {{ form_pagamento.as_p }}
       <button type="submit">Registrar</button>

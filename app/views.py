@@ -494,7 +494,10 @@ def pedido_faturar(request, pk):
         forma += f" em {venda.parcelas}x"
     texto = f"Venda registrada ({forma})."
     if dados["entregar"]:
-        texto += " Entrega agendada."
+        messages.success(request, texto + " Entrega agendada.")
+        if "entregas" in areas_do_usuario(request.user):
+            return redirect(f"{reverse('entrega_lista')}?destaque={entrega.pk}")
+        return redirect("venda_detalhe", pk=venda.pk)
     messages.success(request, texto)
     return redirect("venda_detalhe", pk=venda.pk)
 
@@ -868,6 +871,8 @@ class EntregaListView(BaseListView):
         contexto = super().get_context_data(**kwargs)
         contexto["status_atual"] = self.request.GET.get("status", "")
         contexto["opcoes_status"] = Entrega.STATUS
+        destaque = self.request.GET.get("destaque", "")
+        contexto["destaque"] = int(destaque) if destaque.isdigit() else None
         return contexto
 
 
@@ -876,6 +881,13 @@ class EntregaCreateView(BaseCreateView):
     form_class = EntregaForm
     prefixo = "entrega"
     nome = "entrega"
+
+    def get_initial(self):
+        inicial = super().get_initial()
+        venda = self.request.GET.get("venda", "")
+        if venda.isdigit():
+            inicial["venda"] = int(venda)
+        return inicial
 
 
 class EntregaUpdateView(BaseUpdateView):

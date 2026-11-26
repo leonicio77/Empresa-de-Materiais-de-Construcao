@@ -189,3 +189,5 @@ button.pequeno { padding: 4px 10px; font-size: 13px; }
 .busca label { display: flex; align-items: center; gap: 6px; }
 
 .selo.a-vencer { background: #d6e8ff; color: #1b4f9c; }
+
+tr.destaque td { background: #fff8d6; }

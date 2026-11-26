@@ -14,7 +14,7 @@ PERMISSOES = {
     "pedidos": {"gerente", "vendedor", "caixa"},
     "vendas": {"gerente", "vendedor", "caixa"},
     "compras": {"gerente", "estoquista"},
-    "entregas": {"gerente", "caixa", "entregador"},
+    "entregas": {"gerente", "caixa", "entregador", "vendedor"},
     "despesas": {"gerente", "caixa"},
     "comissoes": {"gerente"},
     "promocoes": {"gerente"},

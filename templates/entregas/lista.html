@@ -37,8 +37,8 @@
     <tbody>
       {% for e in entregas %}
       <tr>
-        <td><a href="{% url 'venda_detalhe' e.venda.pk %}">nº {{ e.venda.pk }}</a></td>
-        <td>{{ e.venda.cliente }}</td>
+        <tr {% if e.pk == destaque %}class="destaque"{% endif %}>
+          <td><a href="{% url 'venda_detalhe' e.venda.pk %}">nº {{ e.venda.pk }}</a></td>        <td>{{ e.venda.cliente }}</td>
         <td>{{ e.endereco }}</td>
         <td>{{ e.data_prevista|date:"d/m/Y" }}</td>
         <td>{{ e.entregador|default:"-" }}</td>

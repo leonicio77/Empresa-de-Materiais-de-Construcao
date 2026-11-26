@@ -7,9 +7,12 @@
   <h1>Venda {{ object.pk }}
     <span class="selo {{ object.status }}">{{ object.get_status_display }}</span>
   </h1>
-  <div>
-    <a class="botao" href="{% url 'venda_nota' object.pk %}" target="_blank">Nota em PDF</a>
-    <a href="{% url 'venda_lista' %}">« Voltar</a>
+  <div class="botoes">
+    {% if object.status == "concluida" and not object.entrega and "entregas" in areas %}
+      <a class="botao" href="{% url 'entrega_novo' %}?venda={{ object.pk }}">🚚 Agendar entrega</a>
+    {% endif %}
+    <a class="botao secundario" href="{% url 'venda_nota' object.pk %}" target="_blank">📄 Nota em PDF</a>
+    <a class="voltar" href="{% url 'venda_lista' %}">« Voltar</a>
   </div>
 </div>
 
@@ -17,7 +20,20 @@
   <p><strong>Cliente:</strong> {{ object.cliente }}</p>
   <p><strong>Vendedor:</strong> {{ object.vendedor }}</p>
   <p><strong>Data:</strong> {{ object.data|date:"d/m/Y H:i" }}</p>
-  <p><strong>Forma de pagamento:</strong> {{ object.get_forma_pagamento_display }}</p>
+  <p><strong>Forma de pagamento:</strong> {{ object.get_forma_pagamento_display }}
+    {% if object.forma_pagamento == "credito" and object.parcelas > 1 %}
+      em {{ object.parcelas }}x de R$ {{ object.valor_parcela|floatformat:2 }}
+    {% endif %}
+  </p>
+  {% if object.entrega %}
+    <p><strong>Entrega:</strong> {{ object.entrega.endereco }}
+      (prevista para {{ object.entrega.data_prevista|date:"d/m/Y" }},
+      <span class="selo {{ object.entrega.status }}">{{ object.entrega.get_status_display }}</span>)
+      {% if "entregas" in areas %}
+        <a href="{% url 'entrega_editar' object.entrega.pk %}">Editar</a>
+      {% endif %}
+    </p>
+  {% endif %}
   <p><strong>Pedido:</strong>
     <a href="{% url 'pedido_detalhe' object.pedido.pk %}">nº {{ object.pedido.pk }}</a></p>
   {% if object.status == "cancelada" %}
@@ -108,9 +124,11 @@
         {% endfor %}
       </tbody>
     </table>
-    {% if object.status == "concluida" and not cronograma %}    <form method="post" action="{% url 'venda_pagamento' object.pk %}" class="formulario">
+    {% if object.status == "concluida" and not cronograma %}
+    <form method="post" action="{% url 'venda_pagamento' object.pk %}" class="formulario">
       {% csrf_token %}
-      <h3>Pagamento avulso (valor livre)</h3>      {{ form_pagamento.as_p }}
+      <h3>Pagamento avulso (valor livre)</h3>
+      {{ form_pagamento.as_p }}
       <button type="submit">Registrar</button>
     </form>
     {% endif %}

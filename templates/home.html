@@ -4,7 +4,7 @@
 
 {% block conteudo %}
 <h1>Olá, {{ user.username }}</h1>
-<p class="resumo">Hoje é {{ hoje|date:"l, d/m/Y" }}.</p>
+<p class="resumo">{{ hoje|date:"l, d/m/Y" }}</p>
 
 {% if not areas %}
   <div class="cartao">
@@ -13,32 +13,59 @@
   </div>
 {% endif %}
 
-<div class="grade">
+<div class="atalhos">
+  {% if "pedidos" in areas %}<a class="botao" href="{% url 'pedido_novo' %}">📝 Novo pedido</a>{% endif %}
+  {% if "compras" in areas %}<a class="botao secundario" href="{% url 'compra_novo' %}">🛒 Nova compra</a>{% endif %}
+  {% if "clientes" in areas %}<a class="botao secundario" href="{% url 'cliente_novo' %}">👤 Novo cliente</a>{% endif %}
+  {% if "estoque" in areas %}<a class="botao secundario" href="{% url 'movimentacao_novo' %}">📦 Movimentar estoque</a>{% endif %}
+</div>
 
+<div class="kpis">
   {% if "vendas" in areas %}
-  <div class="cartao">
-    <h2>Vendas de hoje</h2>
-    <p class="numero">R$ {{ vendas_hoje_total|floatformat:2 }}</p>
-    <p>{{ vendas_hoje_qtd }} venda{{ vendas_hoje_qtd|pluralize }} concluída{{ vendas_hoje_qtd|pluralize }}</p>
-    <a href="{% url 'venda_lista' %}">Ver vendas »</a>
-  </div>
+  <a class="kpi verde" href="{% url 'venda_lista' %}">
+    <small>Vendas de hoje</small>
+    <div class="valor">R$ {{ vendas_hoje_total|floatformat:2 }}</div>
+    <div class="sub">{{ vendas_hoje_qtd }} venda{{ vendas_hoje_qtd|pluralize }} concluída{{ vendas_hoje_qtd|pluralize }}</div>
+  </a>
   {% endif %}
 
   {% if "despesas" in areas %}
+  <a class="kpi vermelho" href="{% url 'despesa_lista' %}">
+    <small>Contas atrasadas</small>
+    <div class="valor">R$ {{ despesas_atrasadas_total|floatformat:2 }}</div>
+    <div class="sub">
+      {% if despesas_atrasadas_qtd %}{{ despesas_atrasadas_qtd }} conta{{ despesas_atrasadas_qtd|pluralize }}{% else %}Nenhuma conta atrasada{% endif %}
+    </div>
+  </a>
+  {% endif %}
+
+  {% if "estoque" in areas %}
+  <a class="kpi amarelo" href="{% url 'produto_lista' %}">
+    <small>Estoque baixo</small>
+    <div class="valor">{% if estoque_critico|length >= 10 %}10+{% else %}{{ estoque_critico|length }}{% endif %}</div>
+    <div class="sub">produto{{ estoque_critico|length|pluralize }} no mínimo ou abaixo</div>
+  </a>
+  {% endif %}
+
+  {% if "entregas" in areas %}
+  <a class="kpi azul" href="{% url 'entrega_lista' %}">
+    <small>Entregas pendentes</small>
+    <div class="valor">{% if entregas_pendentes|length >= 10 %}10+{% else %}{{ entregas_pendentes|length }}{% endif %}</div>
+    <div class="sub">pendentes ou em rota</div>
+  </a>
+  {% endif %}
+</div>
+
+<div class="grade">
+
+  {% if "despesas" in areas %}
   <div class="cartao">
-    <h2>Contas</h2>
-    {% if despesas_atrasadas_qtd %}
-      <p class="numero negativo">R$ {{ despesas_atrasadas_total|floatformat:2 }}</p>
-      <p>{{ despesas_atrasadas_qtd }} conta{{ despesas_atrasadas_qtd|pluralize }} atrasada{{ despesas_atrasadas_qtd|pluralize }}</p>
-    {% else %}
-      <p class="positivo">Nenhuma conta atrasada.</p>
-    {% endif %}
-    <h3>Vencem nos próximos 7 dias</h3>
+    <h2>Contas a vencer (7 dias)</h2>
     <ul class="lista-simples">
       {% for d in despesas_a_vencer %}
-        <li>{{ d.vencimento|date:"d/m" }} - {{ d.get_tipo_display }}: R$ {{ d.valor|floatformat:2 }}</li>
+        <li>{{ d.vencimento|date:"d/m" }} - {{ d.get_tipo_display }}: <strong>R$ {{ d.valor|floatformat:2 }}</strong></li>
       {% empty %}
-        <li>Nada a vencer.</li>
+        <li class="positivo">Nada a vencer nos próximos dias.</li>
       {% endfor %}
     </ul>
     <a href="{% url 'despesa_lista' %}">Ver despesas »</a>
@@ -61,7 +88,7 @@
 
   {% if "entregas" in areas %}
   <div class="cartao">
-    <h2>Entregas pendentes</h2>
+    <h2>Próximas entregas</h2>
     <ul class="lista-simples">
       {% for e in entregas_pendentes %}
         <li>

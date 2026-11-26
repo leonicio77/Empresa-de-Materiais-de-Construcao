@@ -4,14 +4,18 @@
 
 {% block conteudo %}
 <div class="cartao login">
-  <h1>Acessar o sistema</h1>
+  <div class="login-marca">🧱</div>
+  <h1>Materiais de Construção</h1>
+  <p class="login-sub">Acesse o sistema</p>
+
   {% if form.errors %}
-    <p class="erro">Usuário ou senha incorretos.</p>
+    <p class="mensagem error">Usuário ou senha incorretos.</p>
   {% endif %}
-  <form method="post">
+
+  <form method="post" class="formulario">
     {% csrf_token %}
     {{ form.as_p }}
-    <button type="submit">Entrar</button>
+    <button type="submit" class="botao-largo">Entrar</button>
   </form>
 </div>
 {% endblock %}
